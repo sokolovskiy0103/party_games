@@ -195,5 +195,5 @@ setInterval(() => {
   }
 }, 25_000).unref();
 
-server.listen(PORT, () => console.log(`relay listening on ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`relay listening on 0.0.0.0:${server.address().port}`));
 module.exports = { server, rooms };

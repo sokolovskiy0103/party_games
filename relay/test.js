@@ -30,7 +30,7 @@ function get(port, path) {
 
 /** A host that serves one page and echoes every player message back as "echo:<msg>". */
 function fakeHost(port, q = '') {
-  const ws = new WebSocket(`ws://localhost:${port}/host${q}`);
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/host${q}`);
   ws.on('message', raw => {
     const m = JSON.parse(raw);
     if (m.t === 'asset') {
@@ -62,7 +62,7 @@ function fakeHost(port, q = '') {
 
   // player ↔ host
   const opened = next(host, m => m.t === 'open');
-  const player = new WebSocket(`ws://localhost:${port}/r/${hello.code}/ws`);
+  const player = new WebSocket(`ws://127.0.0.1:${port}/r/${hello.code}/ws`);
   await new Promise(r => player.on('open', r));
   const { c } = await opened;
   const echoed = new Promise(r => player.once('message', d => r(d.toString())));
@@ -74,7 +74,7 @@ function fakeHost(port, q = '') {
   assert.strictEqual((await closed).c, c);
 
   // host reconnects with its key: same code, players are told to reconnect
-  const p2 = new WebSocket(`ws://localhost:${port}/r/${hello.code}/ws`);
+  const p2 = new WebSocket(`ws://127.0.0.1:${port}/r/${hello.code}/ws`);
   await new Promise(r => p2.on('open', r));
   const p2closed = new Promise(r => p2.on('close', code => r(code)));
   host.close();
