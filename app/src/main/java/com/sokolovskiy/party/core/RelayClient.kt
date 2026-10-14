@@ -26,7 +26,6 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.Base64
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Connects this phone to the relay on Render. The relay only forwards bytes: players open
@@ -48,7 +47,7 @@ class RelayClient(private val context: Context, private val hub: Hub) {
     private var job: Job? = null
     private val client by lazy {
         HttpClient(CIO) {
-            install(WebSockets) { pingInterval = 20.seconds }
+            install(WebSockets) { pingIntervalMillis = 20_000 }
             install(HttpTimeout)
             engine { requestTimeout = 0 }
         }
