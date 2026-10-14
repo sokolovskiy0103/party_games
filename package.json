@@ -1,0 +1,10 @@
+{
+  "name": "party-games",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root entry so the relay also starts when the Render service points at the repo root instead of relay/.",
+  "main": "index.js",
+  "scripts": { "start": "node relay/server.js", "test": "node relay/test.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
+}
