@@ -8,6 +8,12 @@
 // Host → relay:  m{c,d} · asset{id,status,type,b64}
 'use strict';
 
+// Loud startup so deploy logs always show how far we got.
+console.log(`relay booting: node ${process.version}, cwd ${process.cwd()}, PORT=${process.env.PORT}`);
+process.on('uncaughtException', e => { console.error('uncaught:', e && e.stack || e); process.exit(1); });
+process.on('unhandledRejection', e => { console.error('unhandled rejection:', e && e.stack || e); });
+process.on('exit', code => console.log(`relay exiting with code ${code}`));
+
 const http = require('http');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
