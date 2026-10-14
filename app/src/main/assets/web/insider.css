@@ -1,0 +1,37 @@
+/* «Інсайдер»: the shell's default navy/amber palette, plus role cards and the timer. */
+body[data-game=insider] {
+  --violet: #a98bff;
+  --red: #ff5d6c;
+  --teal: #46d6b0;
+}
+
+.insider .eye { width: 28px; height: 28px; }
+.insider .banner .eye { width: 56px; height: 56px; display: block; margin: 0 auto 8px; }
+.insider .banner h1 { font-size: 26px; }
+.insider .banner div { font-weight: 400; font-size: 16px; }
+
+.insider button.yes { background: var(--red); color: #fff; }
+.insider button.no { background: var(--teal); color: #08261d; }
+.insider button.pick { background: var(--bg2); color: var(--text); border: 2px solid var(--line); text-align: left; }
+.insider button.pick.on { border-color: var(--accent); background: var(--accent-soft); }
+
+.insider .role {
+  border-radius: 24px; padding: 26px 20px; text-align: center; position: relative; overflow: hidden;
+  border: 2px solid var(--line); background: var(--bg2); min-height: 220px;
+  display: flex; flex-direction: column; justify-content: center; gap: 10px; user-select: none; cursor: pointer;
+}
+.insider .role.MASTER { border-color: var(--violet); background: linear-gradient(160deg, #241d44, #161d2e); }
+.insider .role.INSIDER { border-color: var(--red); background: linear-gradient(160deg, #3a1822, #161d2e); }
+.insider .role.COMMON { border-color: var(--teal); background: linear-gradient(160deg, #123129, #161d2e); }
+.insider .role.hidden { border-style: dashed; border-color: var(--line); background: var(--bg2); }
+.insider .role .name { font-size: 30px; font-weight: 900; letter-spacing: -.5px; }
+.insider .role .what { color: var(--muted); }
+.insider .word { font-size: 34px; font-weight: 900; color: var(--accent); letter-spacing: -.5px; word-break: break-word; }
+.insider .word.small-word { font-size: 22px; }
+.insider .c-MASTER { color: var(--violet); }
+.insider .c-INSIDER { color: var(--red); }
+.insider .c-COMMON { color: var(--teal); }
+
+.insider .timer { font-variant-numeric: tabular-nums; font-size: 64px; font-weight: 900; text-align: center; letter-spacing: -2px; line-height: 1; }
+.insider .timer.low { color: var(--red); }
+.insider .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

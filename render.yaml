@@ -1,0 +1,12 @@
+# Render Blueprint: New → Blueprint → pick this repo. Free plan is enough.
+services:
+  - type: web
+    name: party-games-relay
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: relay
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /health
+    autoDeploy: true

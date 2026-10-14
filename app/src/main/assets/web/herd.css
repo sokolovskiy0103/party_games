@@ -1,0 +1,45 @@
+/* «Стадо»: purple and pink. */
+body[data-game=herd] {
+  --bg: #1b1230;
+  --bg2: #26193f;
+  --card: #2f2150;
+  --line: #45336d;
+  --text: #fff4e6;
+  --muted: #b9a8d6;
+  --accent: #ff4f8a;
+  --on-accent: #fff;
+  --accent-soft: #4a1f39;
+  --accent-text: #ffb3cc;
+  --good: #4fe0a0;
+  --good-bg: #1f3a33;
+  --bad: #ff4f8a;
+  --bad-bg: #3a1f2c;
+  --warn: #ffd166;
+  --pink2: #ffb3cc;
+}
+
+.herd .question {
+  font-size: 26px; font-weight: 800; line-height: 1.2;
+  padding: 22px 18px; border-radius: 22px;
+  background: linear-gradient(135deg, #3b2468, #5a2a6e);
+  border: 1px solid #6b3f8f;
+}
+.herd .tag.light { color: var(--good); }
+.herd .tag.spicy { color: var(--warn); }
+.herd .tag.hot { color: var(--accent); }
+.herd .tag.custom { color: var(--pink2); }
+
+.herd .group { border-radius: 16px; padding: 12px; background: var(--bg2); border: 2px solid var(--line); }
+.herd .group.win { border-color: var(--good); background: #1f3a33; }
+.herd .group.target { border-style: dashed; border-color: var(--warn); }
+.herd .group .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+.herd .group .label { font-weight: 800; font-size: 18px; }
+.herd .count { font-weight: 800; color: var(--muted); }
+.herd .member { display: inline-flex; flex-direction: column; padding: 6px 10px; border-radius: 12px; background: var(--card); margin: 0 6px 6px 0; border: 1px solid transparent; }
+.herd .member .who { font-size: 12px; color: var(--muted); }
+.herd .member.me { border-color: var(--accent); }
+.herd .member.sel { border-color: var(--warn); background: #4a3b16; }
+
+.cow { width: 26px; height: 26px; vertical-align: middle; }
+.herd .banner .cow { width: 56px; height: 56px; display: block; margin: 0 auto 8px; }
+.herd .banner { font-size: 22px; }

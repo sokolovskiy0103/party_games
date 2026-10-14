@@ -1,0 +1,10 @@
+{
+  "name": "party-games-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Forwards players' WebSockets to the host phone. No game logic here.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "ws": "^8.18.0" }
+}
