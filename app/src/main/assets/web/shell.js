@@ -247,7 +247,7 @@
     if (info) {
       let s = '';
       if (window.PG_RULES && PG_RULES[st.game]) s += `<button class="soft" data-pg="rules">📖 Правила</button>`;
-      if (host && g && g.menu) s += g.menu(api) || '';
+      if (host && g && g.menu) s += gameMenu(g.menu(api));
       if (host) s += notStarted()
         ? `<button class="soft" data-pg="exitGame">🏠 Головне меню</button>`
         : conf('exitGame', '🏠 Головне меню', 'Точно? Завершити гру й повернутись');
@@ -272,6 +272,22 @@
         ${v ? `<div class="muted small">Версія v${esc(v)}</div>` : ''}</section>`;
     }
     return h + `</div>`;
+  }
+
+  /** Shortcuts a game's menu() may list instead of spelling the item out. */
+  const MENU_ITEMS = { newGame: { t: 'newGame', label: '🔁 Нова гра' } };
+
+  /**
+   * Host-only items of the current game: menu() returns [{ t, label }] or a MENU_ITEMS key. Each one asks "Точно?"
+   * on the first tap and sends { t } to the game on the second, then the drawer closes.
+   */
+  function gameMenu(items) {
+    return (items || []).map(it => (typeof it === 'string' ? MENU_ITEMS[it] : it)).filter(Boolean).map(it => {
+      const key = 'g:' + it.t;
+      return armed === key
+        ? `<button class="danger" data-pg="gameAct" data-v="${esc(it.t)}">Точно? ${esc(it.label)}</button>`
+        : `<button class="soft" data-pg="arm" data-v="${esc(key)}">${esc(it.label)}</button>`;
+    }).join('');
   }
 
   function setDrawer(open) {
@@ -418,6 +434,7 @@
         send({ t: 'leave' }); pid = null; store.set(K + 'pid', null);
         st = null;
         return render();
+      case 'gameAct': api.send({ t: el.dataset.v }); return setDrawer(false);
       case 'quit': try { window.PGApp && PGApp.quit(); } catch (_) {} return;
       case 'update': setDrawer(false); try { window.PGApp && PGApp.checkUpdate(); } catch (_) {} return;
       case 'invite': showInvite = !showInvite; return render();
@@ -440,9 +457,6 @@
     if (el) { if (!el.disabled) shellAct(el.dataset.pg, el); return; }
     const g = st && st.game ? games[st.game] : null;
     if (g && g.click) g.click(e, api);
-    // a game's confirmed menu action (new game, reset…) is done — get the drawer out of the way
-    const act = e.target.closest('#drawer [data-act]');
-    if (act && act.dataset.act !== 'arm') setDrawer(false);
   });
 
   document.addEventListener('keydown', e => {

@@ -6,7 +6,6 @@
 
   let api = PG.api;
   let selected = null;     // answer picked for moving during judging
-  let armed = null;        // two-tap confirmation
   let showCustom = false;
   let lastResultKey = '';
 
@@ -263,8 +262,6 @@
         return api.send({ t: 'custom', text });
       }
       case 'newGroup': if (selected) { api.send({ t: 'move', pid: selected, to: -1 }); selected = null; } return;
-      case 'arm': armed = 'reset'; return api.render();
-      case 'reset': armed = null; return api.send({ t: 'newGame' });
       default: return api.send({ t: name });
     }
   }
@@ -292,10 +289,7 @@
     menu(a) {
       api = a;
       const st = g();
-      if (!st || st.phase === 'LOBBY' || st.phase === 'GAMEOVER') return '';
-      return armed === 'reset'
-        ? `<button class="danger" data-act="reset">Точно? 🔁 Нова гра</button>`
-        : `<button class="soft" data-act="arm">🔁 Нова гра</button>`;
+      return st && st.phase !== 'LOBBY' && st.phase !== 'GAMEOVER' ? ['newGame'] : [];
     },
 
     click(e, a) {

@@ -11,7 +11,6 @@
   };
   const TEAM_COLORS = ['#ff8a3d', '#4cc3ff', '#b98cff', '#5fdc8f', '#ff5d8f', '#ffd34d'];
 
-  let armed = null;        // two-tap confirmations in the menu
   let showAll = false;     // full character list on the final screen
   let timerTotal = 0;
 
@@ -528,7 +527,6 @@
       api = a;
       if (!next) return;
       if (!prev || prev.phase !== next.phase) {
-        armed = null;
         if (next.phase !== 'FINAL') showAll = false;
         if (prev) {
           const mineTurn = next.turn && next.me && next.turn.explainer === next.me.id;
@@ -542,15 +540,12 @@
     menu(a) {
       api = a;
       const s = g();
-      if (!s) return '';
-      const conf = (act, label) => armed === act
-        ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
-        : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      let h = '';
-      if (['READY', 'TURN', 'TURN_END'].includes(s.phase)) h += conf('endTurn', s.phase === 'READY' ? '⏭️ Пропустити хід' : '⏹️ Завершити хід');
-      if (['READY', 'TURN', 'TURN_END', 'ROUND_END'].includes(s.phase)) h += conf('finish', '🏁 Завершити й показати підсумки');
-      if (s.phase !== 'LOBBY') h += conf('newGame', '🔁 Нова гра');
-      return h;
+      if (!s) return [];
+      const items = [];
+      if (['READY', 'TURN', 'TURN_END'].includes(s.phase)) items.push({ t: 'endTurn', label: s.phase === 'READY' ? '⏭️ Пропустити хід' : '⏹️ Завершити хід' });
+      if (['READY', 'TURN', 'TURN_END', 'ROUND_END'].includes(s.phase)) items.push({ t: 'finish', label: '🏁 Завершити й показати підсумки' });
+      if (s.phase !== 'LOBBY') items.push('newGame');
+      return items;
     },
 
     click(e, a) {
@@ -585,8 +580,7 @@
         case 'last': return a.send({ t: 'last', yes: el.dataset.v === '1' });
         case 'nextRound': return a.send({ t: 'nextRound' });
         case 'showAll': showAll = true; return a.render();
-        case 'arm': armed = el.dataset.v; return a.render();
-        case 'endTurn': case 'finish': case 'newGame': armed = null; a.send({ t: act }); return a.render();
+        case 'newGame': return a.send({ t: act });
       }
     },
 

@@ -4,7 +4,6 @@
   const { esc } = PG.api;
 
   let api = PG.api;
-  let armed = null;       // two-tap confirmations for menu actions
   // This round's answer being picked on this phone (not sent yet).
   let draft = { round: -1, yes: null, guess: null, editing: false, pending: false };
 
@@ -184,19 +183,10 @@
     onState(prev, next, a) {
       api = a;
       if (!next) return;
-      if (!prev || prev.round !== next.round) armed = null;
-      if (prev && prev.phase !== next.phase) { armed = null; a.vibrate(120); }
+      if (prev && prev.phase !== next.phase) a.vibrate(120);
     },
 
-    menu(a) {
-      api = a;
-      const s = g();
-      if (!s) return '';
-      const conf = (act, l) => armed === act
-        ? `<button class="danger" data-act="${act}">Точно? ${l}</button>`
-        : `<button class="soft" data-act="arm" data-v="${act}">${l}</button>`;
-      return conf('newGame', '🔁 Нова гра');
-    },
+    menu() { return ['newGame']; },
 
     click(e, a) {
       api = a;
@@ -217,8 +207,6 @@
           draft.editing = false; draft.pending = true;
           a.send({ t: 'answer', yes: draft.yes, guess: draft.guess });
           return a.render();
-        case 'arm': armed = el.dataset.v; a.render(); setTimeout(() => { if (armed === el.dataset.v) { armed = null; a.render(); } }, 4000); return;
-        case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
       }
     },
   });

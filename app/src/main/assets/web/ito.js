@@ -4,7 +4,7 @@
   const { esc } = PG.api;
 
   let api = PG.api;
-  let armed = null;       // two-tap confirmations: 'play' or a menu action
+  let armed = null;       // two-tap confirmation of 'play'
   let animatedTable = 0;  // table length whose newest cards have already animated in
 
   const g = () => api.g;
@@ -193,15 +193,7 @@
       if (armed === 'play' && low(prev) !== low(next)) armed = null;
     },
 
-    menu(a) {
-      api = a;
-      const s = g();
-      if (!s) return '';
-      const conf = (act, label) => armed === act
-        ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
-        : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return conf('newGame', '🔁 Нова гра');
-    },
+    menu() { return ['newGame']; },
 
     click(e, a) {
       api = a;
@@ -214,7 +206,6 @@
         case 'swap': return a.send({ t: 'swap' });
         case 'arm': armed = el.dataset.v; a.render(); setTimeout(() => { if (armed === el.dataset.v) { armed = null; a.render(); } }, 4000); return;
         case 'play': armed = null; return a.send({ t: 'play', v: +el.dataset.v });
-        case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
       }
     },
 

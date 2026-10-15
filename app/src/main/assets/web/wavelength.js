@@ -6,7 +6,6 @@
   let api = PG.api;
   let myVal = 50;        // marker position while the player is still choosing
   let dragging = false;
-  let armed = null;      // two-tap confirmations in the menu
   let animatedRound = -1; // round whose reveal animation has already played
 
   const g = () => api.g;
@@ -279,22 +278,13 @@
       api = a;
       if (!next) return;
       if (!prev || prev.round !== next.round || prev.phase !== next.phase) {
-        armed = null;
         // continue from where the player had already locked, otherwise start in the middle
         myVal = next.myGuess !== undefined ? next.myGuess : 50;
         if (prev && next.phase !== 'LOBBY') a.vibrate(120);
       }
     },
 
-    menu(a) {
-      api = a;
-      const s = g();
-      if (!s) return '';
-      const conf = (act, label) => armed === act
-        ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
-        : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return conf('newGame', '🔁 Нова гра');
-    },
+    menu() { return ['newGame']; },
 
     click(e, a) {
       api = a;
@@ -311,8 +301,6 @@
         }
         case 'lock': return a.send({ t: 'lock', v: myVal });
         case 'reveal': return a.send({ t: 'reveal' });
-        case 'arm': armed = el.dataset.v; return a.render();
-        case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
       }
     },
 

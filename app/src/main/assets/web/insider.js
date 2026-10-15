@@ -11,7 +11,6 @@
 
   let revealed = false;      // role card flipped open
   let pickedGuesser = null;  // Master's two-step "who guessed"
-  let armed = null;          // two-tap confirmations in the menu
   let timerTotal = 0;
   let api = PG.api;
 
@@ -280,20 +279,12 @@
         if (next.phase === 'ROLES') revealed = false;
       }
       if (!prev || prev.phase !== next.phase) {
-        pickedGuesser = null; armed = null;
+        pickedGuesser = null;
         if (prev) a.vibrate(120);
       }
     },
 
-    menu(a) {
-      api = a;
-      const s = g();
-      if (!s) return '';
-      const conf = (act, label) => armed === act
-        ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
-        : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return conf('newGame', '🔁 Нова гра');
-    },
+    menu() { return ['newGame']; },
 
     click(e, a) {
       api = a;
@@ -314,8 +305,6 @@
         case 'vote2': return a.send({ t: 'vote2', target: el.dataset.pid });
         case 'closeVote1': return a.send({ t: 'closeVote1' });
         case 'closeVote2': return a.send({ t: 'closeVote2' });
-        case 'arm': armed = el.dataset.v; return a.render();
-        case 'newGame': armed = null; a.send({ t: act }); return a.render();
       }
     },
   });

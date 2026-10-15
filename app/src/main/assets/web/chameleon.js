@@ -5,7 +5,6 @@
 
   let api = PG.api;
   let revealed = false;   // role card flipped open
-  let armed = null;       // two-tap confirmations in the menu
   let animatedRound = -1; // round whose result animation has already played
 
   const g = () => api.g;
@@ -236,23 +235,12 @@
       api = a;
       if (!next) return;
       if (!prev || prev.round !== next.round) { if (next.phase === 'ROLES') revealed = false; }
-      if (!prev || prev.phase !== next.phase) {
-        armed = null;
-        if (prev) a.vibrate(120);
-      }
+      if (prev && prev.phase !== next.phase) a.vibrate(120);
       // vibrate when it becomes my turn
       if (prev && next.phase === 'CLUES' && next.me && next.turn === next.me.id && prev.turn !== next.turn) a.vibrate([80, 60, 80]);
     },
 
-    menu(a) {
-      api = a;
-      const s = g();
-      if (!s) return '';
-      const conf = (act, label) => armed === act
-        ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
-        : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return conf('newGame', '🔁 Нова гра');
-    },
+    menu() { return ['newGame']; },
 
     click(e, a) {
       api = a;
@@ -275,8 +263,6 @@
         case 'closeVote': return a.send({ t: 'closeVote' });
         case 'guess': return a.send({ t: 'guess', word: el.dataset.w });
         case 'skipGuess': return a.send({ t: 'skipGuess' });
-        case 'arm': armed = el.dataset.v; return a.render();
-        case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
       }
     },
 
