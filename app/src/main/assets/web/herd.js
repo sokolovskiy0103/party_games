@@ -294,8 +294,8 @@
       const st = g();
       if (!st || st.phase === 'LOBBY' || st.phase === 'GAMEOVER') return '';
       return armed === 'reset'
-        ? `<button class="danger" data-act="reset">Точно? Скинути рахунок</button>`
-        : `<button class="soft" data-act="arm">↺ Нова гра (скинути рахунок)</button>`;
+        ? `<button class="danger" data-act="reset">Точно? 🔁 Нова гра</button>`
+        : `<button class="soft" data-act="arm">🔁 Нова гра</button>`;
     },
 
     click(e, a) {

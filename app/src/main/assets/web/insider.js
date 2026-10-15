@@ -292,7 +292,7 @@
       const conf = (act, label) => armed === act
         ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
         : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return (s.phase !== 'LOBBY' ? conf('abort', 'Перервати раунд') : '') + conf('newGame', 'Обнулити рахунок');
+      return conf('newGame', '🔁 Нова гра');
     },
 
     click(e, a) {
@@ -315,7 +315,7 @@
         case 'closeVote1': return a.send({ t: 'closeVote1' });
         case 'closeVote2': return a.send({ t: 'closeVote2' });
         case 'arm': armed = el.dataset.v; return a.render();
-        case 'abort': case 'newGame': armed = null; a.send({ t: act }); return a.render();
+        case 'newGame': armed = null; a.send({ t: act }); return a.render();
       }
     },
   });

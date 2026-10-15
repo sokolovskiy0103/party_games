@@ -133,6 +133,9 @@
     return `<svg class="logo-mark" viewBox="20 21 68 68" aria-hidden="true"><g transform="rotate(16 66 45)"><path fill="#C98A1E" d="M56.4,32.2 h19.2 a6.4,6.4 0 0 1 6.4,6.4 v19.2 a6.4,6.4 0 0 1 -6.4,6.4 h-19.2 a6.4,6.4 0 0 1 -6.4,-6.4 v-19.2 a6.4,6.4 0 0 1 6.4,-6.4 z"/><path fill="#F5B942" d="M56.4,29 h19.2 a6.4,6.4 0 0 1 6.4,6.4 v19.2 a6.4,6.4 0 0 1 -6.4,6.4 h-19.2 a6.4,6.4 0 0 1 -6.4,-6.4 v-19.2 a6.4,6.4 0 0 1 6.4,-6.4 z"/><path fill="#0E1320" d="M55.184,37 a2.816,2.816 0 1 1 5.632,0 a2.816,2.816 0 1 1 -5.632,0 z M63.184,45 a2.816,2.816 0 1 1 5.632,0 a2.816,2.816 0 1 1 -5.632,0 z M71.184,53 a2.816,2.816 0 1 1 5.632,0 a2.816,2.816 0 1 1 -5.632,0 z"/></g><g transform="rotate(-14 44 63)"><path fill="#C42F6B" d="M33.8,49.2 h20.4 a6.8,6.8 0 0 1 6.8,6.8 v20.4 a6.8,6.8 0 0 1 -6.8,6.8 h-20.4 a6.8,6.8 0 0 1 -6.8,-6.8 v-20.4 a6.8,6.8 0 0 1 6.8,-6.8 z"/><path fill="#FF4F8A" d="M33.8,46 h20.4 a6.8,6.8 0 0 1 6.8,6.8 v20.4 a6.8,6.8 0 0 1 -6.8,6.8 h-20.4 a6.8,6.8 0 0 1 -6.8,-6.8 v-20.4 a6.8,6.8 0 0 1 6.8,-6.8 z"/><path fill="#FFFFFF" d="M32.508,54.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M49.508,54.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M41.008,63 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M32.508,71.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M49.508,71.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z"/></g></svg>`;
   }
 
+  /** A game is picked but not started yet (its own setup screen): leaving it loses nothing, so no "Точно?". */
+  const notStarted = () => !!(st && st.game && (!st.g || st.g.phase === 'LOBBY'));
+
   function gameInfo(id) { return (st && st.games.find(x => x.id === id)) || null; }
 
   function joinView() {
@@ -232,8 +235,9 @@
     const g = st.game && games[st.game];
     const info = st.game ? gameInfo(st.game) : null;
     const host = st.isHost;
-    const conf = (act, label) => armed === act
-      ? `<button class="danger" data-pg="${act}">Точно? ${label}</button>`
+    // two taps for anything that interrupts other people
+    const conf = (act, label, sure) => armed === act
+      ? `<button class="danger" data-pg="${act}">${sure}</button>`
       : `<button class="soft" data-pg="arm" data-v="${act}">${label}</button>`;
     let h = `<div class="dr-head">
       <b>${info ? `${info.emoji} ${esc(info.title)}` : 'Party Games'}</b>
@@ -244,7 +248,9 @@
       let s = '';
       if (window.PG_RULES && PG_RULES[st.game]) s += `<button class="soft" data-pg="rules">📖 Правила</button>`;
       if (host && g && g.menu) s += g.menu(api) || '';
-      if (host) s += conf('exitGame', '🎲 До вибору гри');
+      if (host) s += notStarted()
+        ? `<button class="soft" data-pg="exitGame">🏠 Головне меню</button>`
+        : conf('exitGame', '🏠 Головне меню', 'Точно? Завершити гру й повернутись');
       if (s) h += `<section><h3>Гра</h3>${s}</section>`;
     }
 
@@ -253,7 +259,7 @@
       h += `<button class="soft" data-pg="invite">${showInvite ? 'Сховати QR' : '📲 Запросити гравців'}</button>`;
       if (showInvite) h += inviteCard(false);
     }
-    if (!host) h += conf('leave', 'Вийти з кімнати');
+    if (!host) h += conf('leave', '🚪 Вийти з кімнати', 'Точно? Вийти з кімнати');
     h += `</section>`;
 
     if (isHostPage && window.PGApp) {
@@ -261,10 +267,9 @@
       try { v = PGApp.version(); nv = PGApp.updateAvailable(); } catch (_) {}
       h += `<section><h3>Застосунок</h3>${nv
         ? `<button data-pg="update">⬆️ Оновити до v${esc(nv)}</button>`
-        : `<button class="soft" data-pg="update">Перевірити оновлення</button>`}
-        <div class="muted small">${v ? `Версія v${esc(v)}. ` : ''}Повністю зупинити сервер — «Завершити гру» у сповіщенні.</div></section>`;
-    } else if (host) {
-      h += `<section><div class="muted small">Повністю зупинити сервер — «Завершити гру» у сповіщенні.</div></section>`;
+        : `<button class="soft" data-pg="update">🔄 Перевірити оновлення</button>`}
+        ${conf('quit', '⏻ Вийти', 'Точно? Гра для всіх закінчиться')}
+        ${v ? `<div class="muted small">Версія v${esc(v)}</div>` : ''}</section>`;
     }
     return h + `</div>`;
   }
@@ -344,7 +349,8 @@
 
   /**
    * Back gesture of the host app (called from MainActivity). Peels one layer: rules, drawer, a game's own screen;
-   * inside a game it then slides the drawer in (the edge swipe "pulls" it out). Returns true when it handled it.
+   * a game that has not started yet goes straight back to the main menu; otherwise slides the drawer in (the edge swipe "pulls" it out; leaving the app is its «Вийти»). Returns true
+   * when it handled it — false only before joining, so the app goes to the background.
    */
   PG.back = function () {
     if (rulesOpen) { rulesOpen = false; render(); return true; }
@@ -352,7 +358,8 @@
     if (bigQr) { bigQr = false; render(); return true; }
     const g = st && st.game ? games[st.game] : null;
     if (g && g.back && g.back(api)) return true;
-    if (st && st.me && st.game) { setDrawer(true); return true; }
+    if (st && st.isHost && notStarted()) { shellAct('exitGame'); return true; }
+    if (st && st.me) { setDrawer(true); return true; }
     return false;
   };
 
@@ -411,6 +418,7 @@
         send({ t: 'leave' }); pid = null; store.set(K + 'pid', null);
         st = null;
         return render();
+      case 'quit': try { window.PGApp && PGApp.quit(); } catch (_) {} return;
       case 'update': setDrawer(false); try { window.PGApp && PGApp.checkUpdate(); } catch (_) {} return;
       case 'invite': showInvite = !showInvite; return render();
       case 'net': return send({ t: 'relay', on: el.dataset.v === 'relay' });
@@ -432,7 +440,7 @@
     if (el) { if (!el.disabled) shellAct(el.dataset.pg, el); return; }
     const g = st && st.game ? games[st.game] : null;
     if (g && g.click) g.click(e, api);
-    // a game's confirmed menu action (abort, new game…) is done — get the drawer out of the way
+    // a game's confirmed menu action (new game, reset…) is done — get the drawer out of the way
     const act = e.target.closest('#drawer [data-act]');
     if (act && act.dataset.act !== 'arm') setDrawer(false);
   });

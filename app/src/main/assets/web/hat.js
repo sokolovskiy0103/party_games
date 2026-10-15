@@ -547,9 +547,9 @@
         ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
         : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
       let h = '';
-      if (['READY', 'TURN', 'TURN_END'].includes(s.phase)) h += conf('endTurn', s.phase === 'READY' ? 'Пропустити цей хід' : 'Завершити хід');
-      if (['READY', 'TURN', 'TURN_END', 'ROUND_END'].includes(s.phase)) h += conf('finish', 'Завершити гру й показати статистику');
-      if (s.phase !== 'LOBBY') h += conf('newGame', 'Нова гра (очистити шляпу)');
+      if (['READY', 'TURN', 'TURN_END'].includes(s.phase)) h += conf('endTurn', s.phase === 'READY' ? '⏭️ Пропустити хід' : '⏹️ Завершити хід');
+      if (['READY', 'TURN', 'TURN_END', 'ROUND_END'].includes(s.phase)) h += conf('finish', '🏁 Завершити й показати підсумки');
+      if (s.phase !== 'LOBBY') h += conf('newGame', '🔁 Нова гра');
       return h;
     },
 

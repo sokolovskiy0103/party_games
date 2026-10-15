@@ -293,7 +293,7 @@
       const conf = (act, label) => armed === act
         ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
         : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return (s.phase !== 'LOBBY' ? conf('abort', 'Перервати раунд') : '') + conf('newGame', g().coop ? 'Почати серію заново' : 'Обнулити рахунок');
+      return conf('newGame', '🔁 Нова гра');
     },
 
     click(e, a) {
@@ -312,7 +312,7 @@
         case 'lock': return a.send({ t: 'lock', v: myVal });
         case 'reveal': return a.send({ t: 'reveal' });
         case 'arm': armed = el.dataset.v; return a.render();
-        case 'abort': case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
+        case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
       }
     },
 

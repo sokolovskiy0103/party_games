@@ -200,7 +200,7 @@
       const conf = (act, label) => armed === act
         ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
         : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return (s.phase !== 'LOBBY' ? conf('abort', 'Перервати гру') : '') + conf('newGame', 'Скинути рекорд');
+      return conf('newGame', '🔁 Нова гра');
     },
 
     click(e, a) {
@@ -214,7 +214,7 @@
         case 'swap': return a.send({ t: 'swap' });
         case 'arm': armed = el.dataset.v; a.render(); setTimeout(() => { if (armed === el.dataset.v) { armed = null; a.render(); } }, 4000); return;
         case 'play': armed = null; return a.send({ t: 'play', v: +el.dataset.v });
-        case 'abort': case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
+        case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
       }
     },
 

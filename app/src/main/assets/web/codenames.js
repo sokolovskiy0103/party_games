@@ -80,8 +80,8 @@
     const grid = `<div class="cn-grid">${(g().cards || []).map(cardHtml).join('')}</div>`;
     if (!view) return grid;
     return `<div class="seg cn-view">
-        <button class="${view === 'table' ? 'on' : ''}" data-act="view" data-v="table">🔍 Вгадувач</button>
-        <button class="${view === 'key' ? 'on' : ''}" data-act="view" data-v="key">🗝️ Загадувач</button>
+        <button class="${view === 'table' ? 'on' : ''}" data-act="view" data-v="table">🃏 Стіл</button>
+        <button class="${view === 'key' ? 'on' : ''}" data-act="view" data-v="key">🗝️ Мій ключ</button>
       </div>
       <div class="cn-board v-${view}">${grid}</div>`;
   }
@@ -297,15 +297,6 @@
       }
     },
 
-    menu(a) {
-      api = a;
-      const s = g();
-      if (!s || s.phase !== 'PLAY') return '';
-      return armed === 'abort'
-        ? '<button class="danger" data-act="abort">Точно? Перервати гру</button>'
-        : '<button class="soft" data-act="arm" data-v="abort">Перервати гру</button>';
-    },
-
     click(e, a) {
       api = a;
       const el = e.target.closest('[data-act]');
@@ -326,7 +317,6 @@
         case 'open': armed = null; return a.send({ t: 'open', i: +el.dataset.i });
         case 'endTurn': armed = null; return a.send({ t: 'endTurn' });
         case 'arm': armed = el.dataset.v; a.render(); setTimeout(() => { if (armed === el.dataset.v) { armed = null; a.render(); } }, 4000); return;
-        case 'abort': armed = null; a.send({ t: 'abort' }); return a.render();
       }
     },
 

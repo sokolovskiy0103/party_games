@@ -314,15 +314,6 @@
       if (prev && !prev.vote && next.vote) a.vibrate(100);
     },
 
-    menu(a) {
-      api = a;
-      const s = g();
-      if (!s || s.phase === 'LOBBY') return '';
-      return armed === 'abort'
-        ? `<button class="danger" data-act="abort">Точно? Перервати гру</button>`
-        : `<button class="soft" data-act="arm" data-v="abort">Перервати гру</button>`;
-    },
-
     click(e, a) {
       api = a;
       const el = e.target.closest('[data-act]');
@@ -358,7 +349,6 @@
         case 'closeVote': return a.send({ t: 'closeVote' });
         case 'arm': armed = el.dataset.v; a.render(); setTimeout(() => { if (armed === el.dataset.v) { armed = null; a.render(); } }, 4000); return;
         case 'endDay': armed = null; return a.send({ t: 'endDay' });
-        case 'abort': armed = null; a.send({ t: 'abort' }); return a.render();
       }
     },
   });

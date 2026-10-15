@@ -80,8 +80,8 @@ class MainActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // The page closes dialogs / menus first; only when it has nothing to close do we leave the screen
-                // (the game keeps running; stop it via the notification's "Завершити гру").
+                // The page closes dialogs first, otherwise toggles its side menu (which has "Вийти"); only before
+                // joining does it leave the screen (the game keeps running; stop it via "Вийти" or the notification).
                 web.evaluateJavascript("(window.PG&&PG.back&&PG.back())===true") { handled ->
                     if (handled != "true") moveTaskToBack(true)
                 }
@@ -99,6 +99,13 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface fun version(): String = Updater.installedName(this@MainActivity)
         @JavascriptInterface fun updateAvailable(): String = updates.available?.name ?: ""
         @JavascriptInterface fun checkUpdate() { runOnUiThread { updates.check(manual = true) } }
+        /** "Вийти" in the menu: same as the notification's "Завершити гру" — stops the server and the app. */
+        @JavascriptInterface fun quit() {
+            runOnUiThread {
+                finishAndRemoveTask()
+                startService(Intent(this@MainActivity, PartyService::class.java).setAction(PartyService.ACTION_STOP))
+            }
+        }
     }
 
     override fun onDestroy() {
