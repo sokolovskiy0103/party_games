@@ -128,3 +128,15 @@ input[type=text]:focus { border-color: var(--accent); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pop { 0% { transform: scale(.7); opacity: 0 } 70% { transform: scale(1.05) } 100% { transform: scale(1); opacity: 1 } }
 .pop { animation: pop .4s ease-out; }
+
+/* ---------- rules (i) ---------- */
+button.info { width: 32px; padding: 0; border-radius: 50%; font-weight: 800; font-style: italic; font-family: Georgia, serif; }
+.rules-overlay { position: fixed; inset: 0; z-index: 50; background: rgba(5, 8, 16, .7); display: flex; align-items: flex-end; justify-content: center; }
+.rules-overlay[hidden] { display: none; }
+.rules-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-width: 640px; max-height: 88vh; display: flex; flex-direction: column; }
+.rules-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--line); font-size: 17px; }
+.rules-body { overflow-y: auto; padding: 4px 16px calc(20px + env(safe-area-inset-bottom)); line-height: 1.45; }
+.rules-body h3 { margin: 16px 0 6px; color: var(--accent-text); font-size: 16px; }
+.rules-body p { margin: 6px 0; }
+.rules-body ul, .rules-body ol { margin: 6px 0; padding-left: 22px; }
+.rules-body li { margin: 4px 0; }

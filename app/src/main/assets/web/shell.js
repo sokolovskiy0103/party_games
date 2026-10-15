@@ -26,16 +26,15 @@
   let clockOffset = 0;
   let menuOpen = false;
   let showInvite = false;
+  let rulesOpen = false;
   let showRelayUrl = false;
   let armed = null;
-  let spectator = isHostPage && store.get(K + 'spectator') === '1';
 
   // Dev helper: ?autojoin=Name joins without touching the form (used by the desktop 4-pane launcher).
   const autoName = new URLSearchParams(location.search).get('autojoin');
   function autoJoin() {
     if (!autoName || pid || joining) return;
     joining = true;
-    spectator = false; store.set(K + 'spectator', null);
     send({ t: 'join', name: autoName, pid: '' });
   }
 
@@ -70,7 +69,7 @@
     clockOffset = m.now - Date.now();
     if (m.me && m.me.id !== pid) { pid = m.me.id; store.set(K + 'pid', pid); joining = false; }
     prev = st; st = m;
-    if (prev && prev.game !== st.game) { showInvite = false; menuOpen = false; }
+    if (prev && prev.game !== st.game) { showInvite = false; menuOpen = false; rulesOpen = false; }
     const g = st.game && games[st.game];
     if (g && g.onState) g.onState(prev && prev.game === st.game ? prev.g : null, st.g, api);
     render();
@@ -141,11 +140,10 @@
     const name = store.get('pg.name') || '';
     return `<div class="stack" style="margin-top:${isHostPage ? 2 : 10}vh">
       ${isHostPage ? inviteCard() : ''}
-      <h1>${isHostPage ? 'Ти теж граєш?' : 'Заходь у гру'}</h1>
+      <h1>${isHostPage ? 'Як тебе звати?' : 'Заходь у гру'}</h1>
       ${isHostPage ? '' : '<p class="muted">Хост обирає гру, а ти граєш просто в браузері.</p>'}
       <input id="name" type="text" maxlength="20" placeholder="Твоє ім'я" value="${esc(name)}" autocomplete="nickname">
       <button class="big" data-pg="join" ${joining ? 'disabled' : ''}>Грати</button>
-      ${isHostPage ? '<button class="ghost" data-pg="spectate">Ні, я тільки веду</button>' : ''}
     </div>`;
   }
 
@@ -232,9 +230,7 @@
     if (inGame) h += `<button class="soft" data-pg="invite">${showInvite ? 'Сховати QR' : 'Запросити гравців (QR)'}</button>`;
     if (inGame && g && g.menu) h += g.menu(api) || '';
     if (inGame) h += conf('exitGame', 'До вибору гри');
-    if (isHostPage && st.me) h += conf('leave', 'Не грати самому (тільки вести)');
-    if (isHostPage && !st.me) h += `<button class="soft" data-pg="playToo">Я теж граю</button>`;
-    if (isHostPage && window.PGApp) {
+    if (isHostPage && !inGame && window.PGApp) {
       let v = '', nv = '';
       try { v = PGApp.version(); nv = PGApp.updateAvailable(); } catch (_) {}
       h += nv
@@ -253,6 +249,15 @@
     $('#logo').innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Ігри`;
     $('#hostTag').hidden = !(st && st.isHost);
     $('#menuBtn').hidden = !(st && st.isHost);
+    $('#infoBtn').hidden = !(info && window.PG_RULES && PG_RULES[st.game]);
+    const rulesEl = $('#rules');
+    rulesEl.hidden = !(rulesOpen && info && window.PG_RULES && PG_RULES[st.game]);
+    if (!rulesEl.hidden) {
+      const html = `<div class="rules-card" role="dialog" aria-modal="true">
+        <div class="rules-head"><b>${info.emoji} ${esc(info.title)} — правила</b><button class="mini ghost" data-pg="rules" aria-label="Закрити">✕</button></div>
+        <div class="rules-body">${PG_RULES[st.game]}</div></div>`;
+      if (rulesEl._pgHtml !== html) { rulesEl._pgHtml = html; rulesEl.innerHTML = html; }
+    }
     $('#extra').innerHTML = g && g.extra ? (g.extra(api) || '') : '';
 
     const menu = $('#menu');
@@ -261,7 +266,7 @@
 
     let html = '', bar = '';
     const needsJoin = !pid || !st || !st.me;
-    if (needsJoin && !(isHostPage && spectator && st)) {
+    if (needsJoin) {
       if (pid && !st) return; // waiting for state after resume
       html = joinView();
     } else if (!st.game) {
@@ -307,7 +312,6 @@
     if (!name) { input && input.focus(); return; }
     store.set('pg.name', name);
     joining = true;
-    spectator = false; store.set(K + 'spectator', null);
     send({ t: 'join', name, pid: pid || '' });
     keepAwake();
     render();
@@ -316,8 +320,7 @@
   function shellAct(act, el) {
     switch (act) {
       case 'join': return join();
-      case 'spectate': spectator = true; store.set(K + 'spectator', '1'); return render();
-      case 'playToo': spectator = false; store.set(K + 'spectator', null); menuOpen = false; return render();
+      case 'rules': rulesOpen = !rulesOpen; return render();
       case 'menu': menuOpen = !menuOpen; armed = null; return render();
       case 'arm': armed = el.dataset.v; return render();
       case 'kick': {
@@ -330,8 +333,7 @@
       case 'leave':
         armed = null; menuOpen = false;
         send({ t: 'leave' }); pid = null; store.set(K + 'pid', null);
-        if (isHostPage) { spectator = true; store.set(K + 'spectator', '1'); }
-        else st = null;
+        st = null;
         return render();
       case 'update': menuOpen = false; render(); try { window.PGApp && PGApp.checkUpdate(); } catch (_) {} return;
       case 'invite': showInvite = !showInvite; menuOpen = false; return render();
@@ -348,6 +350,7 @@
 
   document.addEventListener('click', e => {
     keepAwake();
+    if (rulesOpen && e.target.id === 'rules') { rulesOpen = false; return render(); }
     const el = e.target.closest('[data-pg]');
     if (el) { if (!el.disabled) shellAct(el.dataset.pg, el); return; }
     const g = st && st.game ? games[st.game] : null;
@@ -355,6 +358,7 @@
   });
 
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && rulesOpen) { rulesOpen = false; return render(); }
     if (e.key === 'Enter' && e.target.id === 'name') return join();
     if (e.key === 'Enter' && e.target.id === 'relayUrl') return shellAct('saveRelay');
     const g = st && st.game ? games[st.game] : null;
