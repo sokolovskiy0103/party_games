@@ -2,6 +2,7 @@ package com.sokolovskiy.party.core
 
 import android.content.Context
 import android.util.Log
+import com.sokolovskiy.party.games.hat.HatModule
 import com.sokolovskiy.party.games.herd.HerdModule
 import com.sokolovskiy.party.games.insider.InsiderModule
 import kotlinx.coroutines.CoroutineScope
@@ -39,6 +40,7 @@ class Hub(private val context: Context) : GameEnv {
     val modules: List<GameModule> = listOf(
         InsiderModule(),
         HerdModule(context) { broadcast() },
+        HatModule(),
     )
     override val room = Room(modules)
 
