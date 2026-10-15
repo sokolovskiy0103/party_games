@@ -7,6 +7,7 @@ import com.sokolovskiy.party.games.herd.HerdModule
 import com.sokolovskiy.party.games.chameleon.ChameleonModule
 import com.sokolovskiy.party.games.clocktower.ClocktowerModule
 import com.sokolovskiy.party.games.decrypto.DecryptoModule
+import com.sokolovskiy.party.games.draw.DrawModule
 import com.sokolovskiy.party.games.ito.ItoModule
 import com.sokolovskiy.party.games.truth.TruthModule
 import com.sokolovskiy.party.games.insider.InsiderModule
@@ -53,6 +54,7 @@ class Hub(private val context: Context) : GameEnv {
         DecryptoModule(),
         ClocktowerModule(),
         TruthModule(),
+        DrawModule(),
     )
     override val room = Room(modules)
 
