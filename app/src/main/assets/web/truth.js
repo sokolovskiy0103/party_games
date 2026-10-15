@@ -1,33 +1,42 @@
-// «Детектор правди» UI. Rendered by the shell; game state is api.g.
+// «Детектор правди» (Privacy) UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
   const { esc } = PG.api;
 
   let api = PG.api;
   let armed = null;       // two-tap confirmations for menu actions
+  // This round's answer being picked on this phone (not sent yet).
+  let draft = { round: -1, yes: null, guess: null, editing: false, pending: false };
 
   const g = () => api.g;
   const me = () => g() && g().me;
-  const isSubject = () => !!(me() && g().subject === me().id);
-  const subjectName = () => { const p = g().players.find(x => x.id === g().subject); return p ? p.name : '?'; };
-  const canDrive = () => isSubject() || api.isHost;   // may reveal / go next / swap
+  const isReader = () => !!(me() && g().reader === me().id);
+  const canDrive =() => isReader() || api.isHost;   // may go next / swap
 
   const SPICES = [['CLEAN', '😇 Звичайні'], ['MIXED', '🎲 Усі'], ['ADULT', '🔥 18+']];
+  const pts = n => n === 1 ? 'очко' : (n >= 2 && n <= 4 ? 'очки' : 'очок');
 
-  const label = truth => truth ? 'Правда' : 'Брехня';
-  const icon = truth => truth ? '✅' : '🤥';
+  function syncDraft() {
+    const s = g();
+    if (draft.round === s.round) return;
+    const m = me() || {};
+    draft = { round: s.round, yes: m.yes === undefined ? null : m.yes, guess: m.guess === undefined ? null : m.guess, editing: false, pending: false };
+  }
 
   // ---------- pieces ----------
+  const person = yes => `<svg class="person ${yes ? 'yes' : 'no'}" viewBox="0 0 24 32" aria-label="${yes ? 'так' : 'ні'}">
+    <circle cx="12" cy="7" r="6"/><path d="M1 31v-6a11 11 0 0 1 22 0v6z"/></svg>`;
+
   function header() {
     const s = g();
-    return `<div class="row head"><span class="tag">хід ${s.turnNo} з ${s.turnTotal}</span><span class="grow"></span><span class="small muted">гаряче крісло: <b>${esc(subjectName())}</b></span></div>`;
+    return `<div class="row head"><span class="tag">раунд ${s.round}</span><span class="grow"></span><span class="small muted">гра до <b>${s.target}</b> очок</span></div>`;
   }
 
   function questionCard() {
     const q = g().question;
     if (!q) return '';
     return `<div class="card stack center">
-      <div class="muted small">${q.adult ? '🔥 ' : ''}Питання для ${isSubject() ? 'тебе' : esc(subjectName())}</div>
+      ${isReader() ? `<div class="muted small">${q.adult ? '🔥 ' : ''}Прочитай уголос</div>` : ''}
       <div class="question">${esc(q.q)}</div>
     </div>`;
   }
@@ -35,7 +44,7 @@
   function scoreboard(withGain) {
     const s = g();
     const list = s.players.slice().sort((a, b) => b.score - a.score);
-    return `<div class="card">${list.map((p, i) => `
+    return `<div class="card">${list.map(p => `
       <div class="score">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${me() && p.id === me().id ? ' <span class="muted">(ти)</span>' : ''}</span>
@@ -44,14 +53,13 @@
       </div>`).join('')}</div>`;
   }
 
-  function voteList() {
+  function progress() {
     const s = g();
-    const voters = s.players.filter(p => p.id !== s.subject);
-    return `<div class="card">${voters.map(p => `
+    return `<div class="card">${s.players.map(p => `
       <div class="score">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}</span>
-        <span class="small ${p.voted ? 'ok' : 'muted'}">${p.voted ? 'проголосував(ла) ✓' : 'думає…'}</span>
+        <span class="small ${p.answered ? 'ok' : 'muted'}">${p.answered ? 'відповів(ла) ✓' : 'думає…'}</span>
       </div>`).join('')}</div>`;
   }
 
@@ -66,12 +74,12 @@
       ${api.isHost
         ? `<div class="chips">${SPICES.map(([id, l]) => `<button class="chip ${s.spice === id ? 'on' : ''}" data-act="spice" data-v="${id}">${l}</button>`).join('')}</div>`
         : `<div class="chips"><span class="chip on">${SPICES.find(x => x[0] === s.spice)[1]}</span></div>`}
-      <b>Кіл на гравця</b>
+      <b>Гра до</b>
       ${api.isHost
-        ? `<div class="chips">${Array.from({ length: s.maxTurns }, (_, i) => i + 1).map(k => `<button class="chip ${s.turnsEach === k ? 'on' : ''}" data-act="turns" data-v="${k}">${k}</button>`).join('')}</div>`
-        : `<div class="chips"><span class="chip on">${s.turnsEach}</span></div>`}
-      <div class="muted small">Кожен по черзі сідає в гаряче крісло й отримує особисте питання. Таємно обери: відповісти чесно чи збрехати,
-        — і відповідай вголос. Решта голосує «правда» чи «брехня». Хто вгадав — +1. Ти отримуєш +1 за кожного, кого обдурив(ла).</div></div>`;
+        ? `<div class="chips">${s.targets.map(k => `<button class="chip ${s.target === k ? 'on' : ''}" data-act="target" data-v="${k}">${k} очок</button>`).join('')}</div>`
+        : `<div class="chips"><span class="chip on">${s.target} очок</span></div>`}
+      <div class="muted small">Хтось читає питання, і всі <b>анонімно</b> відповідають «так» чи «ні». Заодно вгадай, скільки
+        всього буде «так». Вгадав(ла) — +1. Хто чесно відповів, не дізнається ніхто.</div></div>`;
     if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне</span></div>`;
     h += `<h2>Гравці · ${n}</h2><div class="card chips">${s.players.map(p => `<span class="chip"><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}</span>`).join('') || '<span class="muted">Поки нікого</span>'}</div>`;
     if (api.isHost) {
@@ -81,74 +89,64 @@
     return h;
   }
 
-  function subjectControls() {
+  function answerForm() {
     const s = g();
-    if (!s.committed) {
-      return `<div class="card stack center">
-        <b>Що зробиш?</b>
-        <div class="muted small">Вибір бачиш тільки ти. Голосування почнеться після нього.</div>
-        <div class="row two">
-          <button class="big choice truth" data-act="plan" data-v="1">✅ Скажу правду</button>
-          <button class="big choice lie" data-act="plan" data-v="0">🤥 Збрешу</button>
-        </div>
-        <button class="ghost" data-act="swap">Інше питання</button>
-      </div>` ;
-    }
-    return `<div class="banner meh">Ти обрав(ла): ${s.plan ? '✅ говорити правду' : '🤥 брехати'}<div class="small muted">Відповідай вголос — і тримай обличчя!</div></div>
-      ${voteList()}
-      <button class="big" data-act="reveal">${s.allVoted ? 'Показати вердикт' : 'Показати вердикт (не всі проголосували)'}</button>`;
-  }
-
-  function voterControls() {
-    const s = g();
-    if (!s.committed) {
-      return `<div class="card flat center"><span class="spinner"></span> <span class="muted">${esc(subjectName())} вирішує, чесно відповідати чи ні…</span></div>`;
-    }
-    const mine = me() && me().vote;
-    const canVote = !!me();
-    let h = `<div class="card stack center">
-      <b>${esc(subjectName())} відповідає. Віриш?</b>
+    const nums = Array.from({ length: s.maxGuess + 1 }, (_, i) => i);
+    const ready = draft.yes !== null && draft.guess !== null;
+    // Both answers look the same so nobody can tell from a glance at the screen.
+    return `<div class="card stack center">
+      <b>Твоя відповідь</b>
+      <div class="muted small">Її не побачить ніхто — лише загальну кількість «так».</div>
       <div class="row two">
-        <button class="big choice truth ${mine === true ? 'picked' : ''}" data-act="vote" data-v="1" ${canVote ? '' : 'disabled'}>✅ Правда</button>
-        <button class="big choice lie ${mine === false ? 'picked' : ''}" data-act="vote" data-v="0" ${canVote ? '' : 'disabled'}>🤥 Брехня</button>
+        <button class="big choice ${draft.yes === true ? 'picked' : ''}" data-act="yes" data-v="1">Так</button>
+        <button class="big choice ${draft.yes === false ? 'picked' : ''}" data-act="yes" data-v="0">Ні</button>
       </div>
-      <div class="muted small">${mine === undefined ? 'Вибери, поки тобі не кажуть інакше.' : 'Можна передумати до вердикту.'}</div>
-    </div>` + voteList();
-    if (api.isHost) h += `<button class="big" data-act="reveal">Показати вердикт</button>`;
-    return h;
+      <b>Скільки всього буде «так»?</b>
+      <div class="muted small">Рахуючи й себе: від 0 до ${s.maxGuess}.</div>
+      <div class="nums">${nums.map(k => `<button class="num ${draft.guess === k ? 'picked' : ''}" data-act="guess" data-v="${k}">${k}</button>`).join('')}</div>
+      <button class="big" data-act="send" ${ready ? '' : 'disabled'}>Надіслати</button>
+    </div>`;
   }
 
-  function turnView() {
+  function roundView() {
     const s = g();
+    syncDraft();
+    const m = me();
+    const sent = !!(m && (m.yes !== undefined || draft.pending));
     let h = header() + questionCard();
-    h += isSubject() ? subjectControls() : voterControls();
-    if (api.isHost && !isSubject() && !s.committed) h += `<button class="ghost" data-act="swap">Інше питання</button>`;
-    h += `<h2>Рахунок</h2>` + scoreboard(false);
+    if (m && (!sent || draft.editing)) {
+      h += answerForm();
+    } else if (m) {
+      h += `<div class="banner meh">Відповідь надіслано ✓<div class="small muted">Твій прогноз: ${draft.guess} × «так»</div></div>
+        <button class="ghost" data-act="edit">Змінити</button>`;
+    }
+    const done = s.players.filter(p => p.answered).length;
+    h += `<h2>Відповіли · ${done} з ${s.players.length}</h2>` + progress();
+    if (canDrive() && done === 0) h += `<button class="ghost" data-act="swap">Інше питання</button>`;
+    if (api.isHost && done > 0) h += `<button class="soft" data-act="reveal">Відкрити зараз (${done} з ${s.players.length})</button>`;
     return h;
   }
 
   function revealView() {
     const s = g();
-    const voters = s.players.filter(p => p.id !== s.subject);
-    const cast = voters.filter(p => p.vote !== undefined);
-    const fooled = cast.filter(p => p.vote !== s.plan).length;
-    let h = `<div class="banner ${s.plan ? 'good' : 'bad'} pop"><h1>${icon(s.plan)} ${esc(subjectName())}: ${s.plan ? 'сказав(ла) правду' : 'збрехав(ла)'}</h1>
-      <div>${cast.length ? (fooled ? `Обдурено: ${fooled} з ${cast.length}` : 'Ніхто не повівся!') : 'Ніхто не голосував.'}</div></div>`;
+    const mine = s.players.find(p => me() && p.id === me().id);
+    const gain = mine ? mine.gain : 0;
+    // One figure per answer, «так» first: shows the split without saying who.
+    const people = Array.from({ length: s.answered }, (_, i) => person(i < s.yes)).join('');
+    let h = `<div class="banner ${gain ? 'good' : 'meh'} pop">
+      <div class="people">${people}</div>
+      <div class="tally"><span class="yes">${s.yes} так</span> · <span class="no">${s.answered - s.yes} ні</span></div>
+      ${gain ? `<div class="small">Вгадав(ла)! +${gain}</div>` : ''}</div>`;
     h += questionCard();
-    h += `<div class="card">${voters.map(p => {
-      const voted = p.vote !== undefined;
-      const right = voted && p.vote === s.plan;
-      return `<div class="score ${voted ? (right ? 'right' : 'wrong') : ''}">
-        <span class="dot ${p.connected ? '' : 'off'}"></span>
-        <span class="name">${esc(p.name)}</span>
-        <span class="small muted">${voted ? icon(p.vote) + ' ' + label(p.vote) : 'не голосував(ла)'}</span>
-        <span class="verdict">${voted ? (right ? '✓' : '✗') : '–'}</span>
-      </div>`;
-    }).join('') || '<div class="muted center small">Крім гравця в кріслі нікого немає.</div>'}</div>`;
+    const scorers = s.players.filter(p => p.gain);
+    h += `<div class="card flat center small">${scorers.length
+      ? scorers.map(p => `<b>${esc(p.name)}</b> +${p.gain}`).join(' · ')
+      : 'Ніхто не вгадав.'}</div>`;
     h += `<h2>Рахунок</h2>` + scoreboard(true);
+    const ending = s.players.some(p => p.score >= s.target);
     h += canDrive()
-      ? `<button class="big" data-act="next">${s.turnNo >= s.turnTotal ? 'Підсумки' : 'Далі'}</button>`
-      : '<div class="muted center small">Далі — коли хост чи гравець у кріслі натисне.</div>';
+      ? `<button class="big" data-act="next">${ending ? 'Підсумки' : 'Наступне питання'}</button>`
+      : '<div class="muted center small">Далі — коли хост чи той, хто читав, натисне.</div>';
     return h;
   }
 
@@ -157,12 +155,10 @@
     const list = s.players.slice().sort((a, b) => b.score - a.score);
     const top = list.length ? list[0].score : 0;
     const winners = list.filter(p => p.score === top).map(p => esc(p.name)).join(', ');
-    const liar = list.slice().sort((a, b) => b.fooled - a.fooled)[0];
-    const sleuth = list.slice().sort((a, b) => b.caught - a.caught)[0];
-    let h = `<div class="banner good pop"><h1>🏆 ${winners}</h1><div>${top} ${top === 1 ? 'очко' : 'очок'}</div></div>`;
+    const sharp = list.slice().sort((a, b) => b.exact - a.exact)[0];
+    let h = `<div class="banner good pop"><h1>🏆 ${winners}</h1><div>${top} ${pts(top)}</div></div>`;
     h += scoreboard(false);
-    if (liar && liar.fooled > 0) h += `<div class="card flat center small">🤥 Найкращий брехун: <b>${esc(liar.name)}</b> — обдурив(ла) ${liar.fooled}</div>`;
-    if (sleuth && sleuth.caught > 0) h += `<div class="card flat center small">🕵️ Найкращий детектор: <b>${esc(sleuth.name)}</b> — вгадав(ла) ${sleuth.caught}</div>`;
+    if (sharp && sharp.exact > 0) h += `<div class="card flat center small">🎯 Найточніший детектор: <b>${esc(sharp.name)}</b> — ${sharp.exact} точних</div>`;
     h += api.isHost
       ? `<button class="big" data-act="start" ${s.players.length >= s.minPlayers ? '' : 'disabled'}>Ще раз</button>`
       : '<div class="muted center small">Хост почне заново.</div>';
@@ -177,7 +173,7 @@
       let h;
       switch (s.phase) {
         case 'LOBBY': h = lobbyView(); break;
-        case 'TURN': h = turnView(); break;
+        case 'ROUND': h = roundView(); break;
         case 'REVEAL': h = revealView(); break;
         case 'OVER': h = overView(); break;
         default: h = '';
@@ -190,8 +186,6 @@
       if (!next) return;
       if (!prev || prev.round !== next.round) armed = null;
       if (prev && prev.phase !== next.phase) { armed = null; a.vibrate(120); }
-      // The subject picked: voters get a nudge that voting is open.
-      if (prev && prev.round === next.round && !prev.committed && next.committed && next.subject !== (next.me && next.me.id)) a.vibrate(80);
     },
 
     menu(a) {
@@ -210,13 +204,19 @@
       if (!el || el.disabled) return;
       switch (el.dataset.act) {
         case 'spice': return a.send({ t: 'spice', v: el.dataset.v });
-        case 'turns': return a.send({ t: 'turns', v: +el.dataset.v });
+        case 'target': return a.send({ t: 'target', v: +el.dataset.v });
         case 'start': return a.send({ t: 'start' });
         case 'next': return a.send({ t: 'next' });
         case 'swap': return a.send({ t: 'swap' });
         case 'reveal': return a.send({ t: 'reveal' });
-        case 'plan': return a.send({ t: 'plan', truth: el.dataset.v === '1' });
-        case 'vote': return a.send({ t: 'vote', truth: el.dataset.v === '1' });
+        case 'yes': draft.yes = el.dataset.v === '1'; return a.render();
+        case 'guess': draft.guess = +el.dataset.v; return a.render();
+        case 'edit': draft.editing = true; draft.pending = false; return a.render();
+        case 'send':
+          if (draft.yes === null || draft.guess === null) return;
+          draft.editing = false; draft.pending = true;
+          a.send({ t: 'answer', yes: draft.yes, guess: draft.guess });
+          return a.render();
         case 'arm': armed = el.dataset.v; a.render(); setTimeout(() => { if (armed === el.dataset.v) { armed = null; a.render(); } }, 4000); return;
         case 'abort': case 'newGame': armed = null; a.send({ t: el.dataset.act }); return a.render();
       }

@@ -5,46 +5,48 @@ import org.json.JSONObject
 import kotlin.random.Random
 
 /**
- * Pure game logic for «Детектор правди». Not thread-safe: the server guards it with a lock.
+ * Pure game logic for «Детектор правди» — Privacy by Reinhard Staupe. Not thread-safe: the server guards it with a lock.
  *
- * Hot seat: each turn one player (the subject) gets a personal question. They secretly pick whether they will answer
- * truthfully or lie, then answer aloud. Everybody else votes «правда» / «брехня» (the votes stay hidden). On reveal each
- * correct voter scores a point, and the subject scores a point for every voter they fooled.
- * Everyone sits in the hot seat [turnsEach] times, in join order.
+ * Each round one player (the reader, in turn) reads a yes/no question aloud. Everybody, the reader included, secretly
+ * answers «так» / «ні» and guesses how many «так» there will be in total. On reveal only the number of «так» is shown —
+ * individual answers never leave the server. An exact guess scores a point, anything else nothing (simpler than the
+ * original's 3 / 1 for off-by-one). The first to reach [target] points ends the game after that round; the highest score wins.
  *
- * Flow: LOBBY -> TURN -> REVEAL -> TURN … -> OVER.
+ * Flow: LOBBY -> ROUND -> REVEAL -> ROUND … -> OVER.
  */
 class Game(private val bank: QuestionBank, private val random: Random = Random.Default) {
-    enum class Phase { LOBBY, TURN, REVEAL, OVER }
+    enum class Phase { LOBBY, ROUND, REVEAL, OVER }
     enum class Spice { CLEAN, MIXED, ADULT }
 
     class Player(val id: String, var name: String, val joinOrder: Int) {
         var connected = false
         var score = 0
-        /** Hot-seat turns finished. */
-        var turns = 0
-        /** Voters this player fooled / votes this player got right. */
-        var fooled = 0
-        var caught = 0
+        /** Exact guesses over the game. */
+        var exact = 0
     }
+
+    private class Ballot(var yes: Boolean, var guess: Int)
 
     val players = LinkedHashMap<String, Player>()
     var phase = Phase.LOBBY; private set
     var spice = Spice.MIXED; private set
-    var turnsEach = DEFAULT_TURNS; private set
-    /** Bumped on every turn so clients can reset per-turn UI. */
+    var target = DEFAULT_TARGET; private set
+    /** Bumped on every round so clients can reset per-round UI. */
     var round = 0; private set
-    var subject: String? = null; private set
+    var reader: String? = null; private set
     var question: Question? = null; private set
-    /** The subject's secret choice: true = will tell the truth. Null until they commit. */
-    var plan: Boolean? = null; private set
-    /** Voter id -> "believes it is the truth". */
-    val votes = LinkedHashMap<String, Boolean>()
-    /** Points earned in the turn just revealed. */
+    /** Secret: never sent to clients, except a player's own ballot to themselves. */
+    private val ballots = LinkedHashMap<String, Ballot>()
+    /** Number of «так» in the round just revealed, and how many answered. */
+    var yesCount = 0; private set
+    var answered = 0; private set
+    /** Points earned in the round just revealed. */
     val gains = HashMap<String, Int>()
     var notice: String? = null; private set
 
     private var nextOrder = 0
+    /** Join order of the last reader, to go round the table. */
+    private var lastReaderOrder = -1
 
     // ---------- players ----------
 
@@ -53,10 +55,10 @@ class Game(private val bank: QuestionBank, private val random: Random = Random.D
 
     fun remove(pid: String) {
         players.remove(pid) ?: return
-        votes.remove(pid)
-        if (phase != Phase.TURN && phase != Phase.REVEAL) return
+        ballots.remove(pid)
+        if (phase != Phase.ROUND && phase != Phase.REVEAL) return
         if (players.size < MIN_PLAYERS) { cancel("Замало гравців — гру перервано."); return }
-        if (pid == subject && phase == Phase.TURN) nextTurn()
+        if (phase == Phase.ROUND && allAnswered()) score()
     }
 
     // ---------- flow ----------
@@ -64,89 +66,95 @@ class Game(private val bank: QuestionBank, private val random: Random = Random.D
     fun canStart() = players.size >= MIN_PLAYERS
 
     fun setSpice(s: Spice): Boolean {
-        if (phase == Phase.TURN || phase == Phase.REVEAL) return false
+        if (phase == Phase.ROUND || phase == Phase.REVEAL) return false
         spice = s
         return true
     }
 
-    fun setTurns(n: Int): Boolean {
-        if (phase == Phase.TURN || phase == Phase.REVEAL || n !in 1..MAX_TURNS) return false
-        turnsEach = n
+    fun setTarget(n: Int): Boolean {
+        if (phase == Phase.ROUND || phase == Phase.REVEAL || n !in TARGETS) return false
+        target = n
         return true
     }
 
-    /** LOBBY/OVER -> TURN. */
+    /** LOBBY/OVER -> ROUND. */
     fun startGame(): Boolean {
-        if (phase == Phase.TURN || phase == Phase.REVEAL || !canStart()) return false
-        players.values.forEach { it.score = 0; it.turns = 0; it.fooled = 0; it.caught = 0 }
+        if (phase == Phase.ROUND || phase == Phase.REVEAL || !canStart()) return false
+        players.values.forEach { it.score = 0; it.exact = 0 }
         notice = null
-        nextTurn()
+        nextRound()
         return true
     }
 
-    /** Whose turn comes next: whoever sat the least, then by join order. Null when everyone is done. */
-    private fun pickSubject() = players.values.filter { it.turns < turnsEach }.minWithOrNull(compareBy({ it.turns }, { it.joinOrder }))
-
-    private fun nextTurn() {
-        val s = pickSubject()
-        votes.clear(); gains.clear()
-        plan = null
-        if (s == null) { phase = Phase.OVER; subject = null; question = null; return }
-        subject = s.id
+    private fun nextRound() {
+        val order = players.values.sortedBy { it.joinOrder }
+        val r = order.firstOrNull { it.joinOrder > lastReaderOrder } ?: order.first()
+        lastReaderOrder = r.joinOrder
+        reader = r.id
         question = bank.next(spice, random)
+        ballots.clear(); gains.clear()
+        yesCount = 0; answered = 0
         round++
-        phase = Phase.TURN
+        phase = Phase.ROUND
     }
 
-    /** Subject or host: another question, only before the subject has committed. */
+    /** Reader or host: another question, only before anyone has answered. */
     fun swapQuestion(pid: String?, isHost: Boolean): Boolean {
-        if (phase != Phase.TURN || plan != null || !(isHost || pid == subject)) return false
+        if (phase != Phase.ROUND || ballots.isNotEmpty() || !(isHost || pid == reader)) return false
         question = bank.next(spice, random)
         return true
     }
 
-    /** The subject secretly decides to tell the truth or to lie; this opens the voting. */
-    fun commit(pid: String, truth: Boolean): Boolean {
-        if (phase != Phase.TURN || pid != subject || plan != null) return false
-        plan = truth
+    /** A player's secret answer and guess of the «так» count. Can be changed until everyone has answered. */
+    fun answer(pid: String, yes: Boolean, guess: Int): Boolean {
+        if (phase != Phase.ROUND || pid !in players || guess !in 0..players.size) return false
+        ballots.getOrPut(pid) { Ballot(yes, guess) }.also { it.yes = yes; it.guess = guess }
+        if (allAnswered()) score()
         return true
     }
 
-    /** A voter's guess ([truth]: "I believe it"). Can be changed until the reveal. */
-    fun vote(pid: String, truth: Boolean): Boolean {
-        if (phase != Phase.TURN || plan == null || pid == subject || pid !in players) return false
-        votes[pid] = truth
+    fun hasAnswered(pid: String) = pid in ballots
+
+    fun allAnswered() = players.keys.all { it in ballots }
+
+    /** Host: reveal now with whoever has answered (someone is stuck or gone). */
+    fun forceReveal(isHost: Boolean): Boolean {
+        if (phase != Phase.ROUND || !isHost || ballots.isEmpty()) return false
+        score()
         return true
     }
 
-    fun allVoted() = players.keys.all { it == subject || it in votes }
-
-    /** Subject or host opens the verdict and scores the turn. */
-    fun reveal(pid: String?, isHost: Boolean): Boolean {
-        val p = plan ?: return false
-        if (phase != Phase.TURN || !(isHost || pid == subject)) return false
-        val sub = players[subject] ?: return false
-        for ((voter, guess) in votes) {
-            val v = players[voter] ?: continue
-            if (guess == p) { v.score++; v.caught++; gains.merge(v.id, 1, Int::plus) }
-            else { sub.score++; sub.fooled++; gains.merge(sub.id, 1, Int::plus) }
+    private fun score() {
+        val yes = ballots.values.count { it.yes }
+        for ((pid, b) in ballots) {
+            val p = players[pid] ?: continue
+            if (b.guess != yes) continue
+            p.score++; p.exact++
+            gains[pid] = 1
         }
-        sub.turns++
+        yesCount = yes
+        answered = ballots.size
+        ballots.clear()   // nothing left to leak
         phase = Phase.REVEAL
-        return true
     }
 
-    /** REVEAL -> next turn (or OVER). */
+    /** REVEAL -> next round, or OVER once someone has reached the target. */
     fun next(pid: String?, isHost: Boolean): Boolean {
-        if (phase != Phase.REVEAL || !(isHost || pid == subject)) return false
-        nextTurn()
+        if (phase != Phase.REVEAL || !(isHost || pid == reader)) return false
+        if (players.values.any { it.score >= target }) {
+            phase = Phase.OVER
+            reader = null; question = null
+            gains.clear()
+        } else {
+            nextRound()
+        }
         return true
     }
 
     private fun cancel(msg: String) {
         phase = Phase.LOBBY
-        subject = null; question = null; plan = null
-        votes.clear(); gains.clear()
+        reader = null; question = null
+        ballots.clear(); gains.clear()
         notice = msg
     }
 
@@ -159,7 +167,7 @@ class Game(private val bank: QuestionBank, private val random: Random = Random.D
     fun newGame() {
         cancel("")
         notice = null
-        players.values.forEach { it.score = 0; it.turns = 0; it.fooled = 0; it.caught = 0 }
+        players.values.forEach { it.score = 0; it.exact = 0 }
         bank.reset()
     }
 
@@ -173,45 +181,35 @@ class Game(private val bank: QuestionBank, private val random: Random = Random.D
         o.put("isHost", isHost)
         o.put("minPlayers", MIN_PLAYERS)
         o.put("spice", spice.name)
-        o.put("turnsEach", turnsEach)
-        o.put("maxTurns", MAX_TURNS)
+        o.put("target", target)
+        o.put("targets", JSONArray(TARGETS.toList()))
         notice?.takeIf { it.isNotEmpty() }?.let { o.put("notice", it) }
-        o.put("subject", subject ?: JSONObject.NULL)
+        o.put("reader", reader ?: JSONObject.NULL)
         question?.let { o.put("question", JSONObject().put("q", it.q).put("adult", it.adult)) }
-        o.put("committed", plan != null)
-        o.put("allVoted", phase == Phase.TURN && plan != null && allVoted())
-        val total = players.size * turnsEach
-        o.put("turnNo", minOf(players.values.sumOf { it.turns } + if (phase == Phase.TURN) 1 else 0, maxOf(total, 1)))
-        o.put("turnTotal", total)
-
-        // The plan is secret from everyone but the subject until the verdict.
-        val seePlan = phase == Phase.REVEAL || phase == Phase.OVER || viewer == subject
-        if (seePlan) plan?.let { o.put("plan", it) }
+        o.put("maxGuess", players.size)
         val reveal = phase == Phase.REVEAL
+        if (reveal) o.put("yes", yesCount).put("answered", answered)
+
         o.put("players", JSONArray(players.values.sortedBy { it.joinOrder }.map { p ->
             JSONObject()
                 .put("id", p.id).put("name", p.name).put("connected", p.connected)
-                .put("score", p.score).put("turns", p.turns).put("fooled", p.fooled).put("caught", p.caught)
-                .put("voted", p.id in votes)
-                .apply {
-                    if (reveal) {
-                        votes[p.id]?.let { put("vote", it) }
-                        put("gain", gains[p.id] ?: 0)
-                    }
-                }
+                .put("score", p.score).put("exact", p.exact)
+                .put("answered", p.id in ballots)
+                .apply { if (reveal) put("gain", gains[p.id] ?: 0) }
         }))
 
         val me = viewer?.let { players[it] }
         if (me != null) {
-            o.put("me", JSONObject().put("id", me.id).put("name", me.name)
-                .apply { votes[me.id]?.let { put("vote", it) } })
+            o.put("me", JSONObject().put("id", me.id).put("name", me.name).apply {
+                ballots[me.id]?.let { put("yes", it.yes).put("guess", it.guess) }
+            })
         }
         return o
     }
 
     companion object {
-        const val MIN_PLAYERS = 3
-        const val DEFAULT_TURNS = 2
-        const val MAX_TURNS = 5
+        const val MIN_PLAYERS = 4
+        const val DEFAULT_TARGET = 5
+        val TARGETS = listOf(3, 5, 7, 10)
     }
 }

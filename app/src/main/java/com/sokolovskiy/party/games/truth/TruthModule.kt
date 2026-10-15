@@ -8,7 +8,7 @@ import org.json.JSONObject
 class TruthModule : GameModule {
     override val id = "truth"
     override val title = "Детектор правди"
-    override val subtitle = "Гаряче крісло: відповідай на особисте питання — чесно чи ні. Решта вирішує, чи вірить тобі"
+    override val subtitle = "Усі анонімно відповідають «так» чи «ні» на гостре питання й вгадують, скільки буде «так»"
     override val minPlayers = Game.MIN_PLAYERS
     override val emoji = "🕵️"
 
@@ -28,15 +28,14 @@ class TruthModule : GameModule {
 
         override fun handle(pid: String?, isHost: Boolean, msg: JSONObject, now: Long) {
             when (msg.optString("t")) {
-                "plan" -> pid?.let { game.commit(it, msg.optBoolean("truth")) }
-                "vote" -> pid?.let { game.vote(it, msg.optBoolean("truth")) }
+                "answer" -> pid?.let { game.answer(it, msg.optBoolean("yes"), msg.optInt("guess", -1)) }
                 "swap" -> game.swapQuestion(pid, isHost)
-                "reveal" -> game.reveal(pid, isHost)
+                "reveal" -> game.forceReveal(isHost)
                 "next" -> game.next(pid, isHost)
             }
             if (isHost) when (msg.optString("t")) {
                 "spice" -> runCatching { Game.Spice.valueOf(msg.optString("v")) }.getOrNull()?.let { game.setSpice(it) }
-                "turns" -> game.setTurns(msg.optInt("v", 0))
+                "target" -> game.setTarget(msg.optInt("v", 0))
                 "start" -> game.startGame()
                 "abort" -> game.abort()
                 "newGame" -> game.newGame()
