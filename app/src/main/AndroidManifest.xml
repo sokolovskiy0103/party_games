@@ -45,6 +45,16 @@
                 android:value="Local Wi-Fi game server for a party game hosted on this phone" />
         </service>
 
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.update"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
+
         <receiver
             android:name=".update.UpdateReceiver"
             android:exported="false">

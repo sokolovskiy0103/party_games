@@ -34,16 +34,15 @@ class UpdateReceiver : BroadcastReceiver() {
                     @Suppress("DEPRECATION") intent.getParcelableExtra(Intent.EXTRA_INTENT)
                 }
                 if (confirm == null) { listener?.invoke(Result.Failed("Система не показала вікно встановлення")); return }
+                // Prefer launching from the on-screen activity (same task): a confirmation
+                // started as a separate task from a receiver gets aborted on some phones.
+                listener?.let { it(Result.NeedsConfirmation(confirm)); return }
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                try {
-                    context.startActivity(confirm)
-                    listener?.invoke(Result.WaitingForUser)
-                } catch (e: Exception) {
-                    listener?.invoke(Result.Failed(e.message ?: "Не вдалося відкрити встановлення"))
-                }
+                runCatching { context.startActivity(confirm) }
             }
             PackageInstaller.STATUS_SUCCESS -> listener?.invoke(Result.Success)
-            PackageInstaller.STATUS_FAILURE_ABORTED -> listener?.invoke(Result.Cancelled)
+            PackageInstaller.STATUS_FAILURE_ABORTED ->
+                listener?.invoke(Result.Cancelled(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)))
             else -> {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                 listener?.invoke(Result.Failed(describe(status, msg)))
@@ -79,9 +78,10 @@ class UpdateReceiver : BroadcastReceiver() {
     }
 
     sealed interface Result {
-        data object WaitingForUser : Result
+        data class NeedsConfirmation(val confirm: Intent) : Result
         data object Success : Result
-        data object Cancelled : Result
+        /** Aborted — by the user, or by the system/vendor installer ([message] may say which). */
+        data class Cancelled(val message: String?) : Result
         data class Failed(val message: String) : Result
     }
 

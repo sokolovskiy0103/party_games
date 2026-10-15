@@ -1,10 +1,12 @@
 package com.sokolovskiy.party.update
 
+import android.app.Activity
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import androidx.core.content.FileProvider
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -109,6 +111,20 @@ object Updater {
             runCatching { installer.abandonSession(id) }
             throw if (e is IOException) e else IOException(e.message ?: e.toString(), e)
         }
+    }
+
+    /**
+     * Fallback for when the session install is aborted by the system (some vendor
+     * installers, e.g. MIUI/HyperOS, cancel sessions from third-party apps): opens the
+     * APK in the regular system installer. No result callback; MY_PACKAGE_REPLACED
+     * still fires on success.
+     */
+    fun installViaSystemUi(activity: Activity, apk: File) {
+        val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.update", apk)
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        activity.startActivity(intent)
     }
 
     private fun open(url: String): HttpURLConnection =
