@@ -8,6 +8,7 @@ import com.sokolovskiy.party.games.chameleon.ChameleonModule
 import com.sokolovskiy.party.games.clocktower.ClocktowerModule
 import com.sokolovskiy.party.games.decrypto.DecryptoModule
 import com.sokolovskiy.party.games.ito.ItoModule
+import com.sokolovskiy.party.games.truth.TruthModule
 import com.sokolovskiy.party.games.insider.InsiderModule
 import com.sokolovskiy.party.games.wavelength.WavelengthModule
 import kotlinx.coroutines.CoroutineScope
@@ -51,6 +52,7 @@ class Hub(private val context: Context) : GameEnv {
         ItoModule(),
         DecryptoModule(),
         ClocktowerModule(),
+        TruthModule(),
     )
     override val room = Room(modules)
 
