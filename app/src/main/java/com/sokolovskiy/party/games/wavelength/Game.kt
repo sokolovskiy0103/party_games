@@ -13,6 +13,9 @@ import kotlin.random.Random
  *  GUESS  – everyone else puts a marker where they think the target is and locks it in.
  *  RESULT – the target is revealed; the closer the marker, the more points. The Psychic earns
  *           the average of the guessers' points.
+ *
+ * With exactly two players a round is played co-op instead (decided on every round start): the two take turns as
+ * Psychic and score together. A series has [COOP_ROUNDS] rounds; a bullseye earns a bonus round.
  */
 class Game(
     private val spectra: SpectrumBank,
@@ -47,6 +50,17 @@ class Game(
     /** One-off notice for everyone (e.g. "round cancelled"). */
     var notice: String? = null; private set
 
+    // ---- co-op series (two players) ----
+    /** The current round is co-op: points go to the shared [coopScore], not to the players. */
+    var coop = false; private set
+    var coopScore = 0; private set
+    /** Rounds still to play in the series, the current one included until it is revealed. */
+    var coopLeft = 0; private set
+    var coopPlayed = 0; private set
+    /** The last revealed co-op round was a bullseye and gave a bonus round. */
+    var coopBonus = false; private set
+    val coopOver get() = coop && coopLeft <= 0
+
     private var psychicCursor = -1
     private var nextOrder = 0
 
@@ -78,6 +92,12 @@ class Game(
         if (phase != Phase.LOBBY && phase != Phase.RESULT) return false
         if (!canStart()) return false
         val order = players.values.sortedBy { it.joinOrder }.map { it.id }
+        val wantCoop = order.size == COOP_PLAYERS
+        if (wantCoop && (!coop || coopOver)) {
+            coopScore = 0; coopLeft = COOP_ROUNDS; coopPlayed = 0
+        }
+        coop = wantCoop
+        coopBonus = false
         inRound.clear(); inRound += order
         psychicCursor = (psychicCursor + 1) % order.size
         psychicId = order[psychicCursor]
@@ -127,7 +147,15 @@ class Game(
         psychicId?.let { pid ->
             pts[pid] = if (guesses.isEmpty()) 0 else Math.round(pts.filterKeys { it != pid }.values.average()).toInt()
         }
-        for ((id, n) in pts) players[id]?.let { it.score += n }
+        if (coop) {
+            val p = guesses.values.firstOrNull()?.let { pointsFor(abs(it - target)) } ?: 0
+            coopScore += p
+            coopPlayed++
+            coopBonus = p == ZONES.first().second
+            if (!coopBonus) coopLeft--
+        } else {
+            for ((id, n) in pts) players[id]?.let { it.score += n }
+        }
         result = Result(target, LinkedHashMap(guesses), pts)
         phase = Phase.RESULT
         return true
@@ -151,6 +179,7 @@ class Game(
         round = 0
         psychicCursor = -1
         players.values.forEach { it.score = 0 }
+        coop = false; coopScore = 0; coopLeft = 0; coopPlayed = 0; coopBonus = false
         spectra.reset()
     }
 
@@ -162,6 +191,13 @@ class Game(
         o.put("round", round)
         o.put("now", now)
         o.put("minPlayers", MIN_PLAYERS)
+        // The mode the next round would start in; while a co-op round runs it stays co-op.
+        val coopNow = if (phase == Phase.LOBBY || phase == Phase.RESULT) players.size == COOP_PLAYERS else coop
+        o.put("coop", coopNow)
+        if (coopNow || coop) o.put("series", JSONObject()
+            .put("active", coop)
+            .put("score", coopScore).put("left", coopLeft).put("played", coopPlayed)
+            .put("total", COOP_ROUNDS).put("bonus", coopBonus).put("over", coopOver))
         o.put("isHost", isHost)
         o.put("psychic", psychicId ?: JSONObject.NULL)
         o.put("zones", JSONArray(ZONES.map { JSONArray(listOf(it.first, it.second)) }))
@@ -197,7 +233,9 @@ class Game(
     }
 
     companion object {
-        const val MIN_PLAYERS = 3
+        const val MIN_PLAYERS = 2
+        const val COOP_PLAYERS = 2
+        const val COOP_ROUNDS = 7
         const val MAX_CLUE = 60
         const val TARGET_MIN = 5
         const val TARGET_MAX = 95

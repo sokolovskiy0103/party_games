@@ -14,9 +14,11 @@ class GameTest {
         return g to ids
     }
 
-    @Test fun needsThreePlayersAndPsychicRotates() {
-        val (g, ids) = game(2)
+    @Test fun needsTwoPlayersAndPsychicRotates() {
+        val (g, _) = game(1)
         assertFalse(g.startRound())
+        val ids = listOf("p1", "p2", "p3")
+        g.add("p2", "P2")
         g.add("p3", "P3")
         assertTrue(g.startRound())
         assertEquals(ids[0], g.psychicId)
@@ -134,5 +136,61 @@ class GameTest {
         val r = Random(1)
         val seen = (1..3).map { bank.next(r).let { s -> setOf(s.left, s.right) } }.toSet()
         assertEquals(3, seen.size)
+    }
+
+    // ---------- co-op (two players) ----------
+
+    /** Plays one co-op round with the guesser landing [offset] away from the target (towards the far edge). */
+    private fun coopRound(g: Game, offset: Int) {
+        assertTrue(g.startRound())
+        g.submitClue("x")
+        val guesser = g.guessers().single()
+        g.lock(guesser, if (g.target < 50) g.target + offset else g.target - offset)
+    }
+
+    @Test fun twoPlayersPlayCoopWithSharedScore() {
+        val (g, ids) = game(2)
+        coopRound(g, 10) // 2 points
+        assertTrue(g.coop)
+        assertEquals(Game.Phase.RESULT, g.phase)
+        assertEquals(2, g.coopScore)
+        assertEquals(Game.COOP_ROUNDS - 1, g.coopLeft)
+        assertTrue(g.players.values.all { it.score == 0 })
+        coopRound(g, 30) // miss
+        assertEquals(2, g.coopScore)
+        assertEquals(ids[1], g.psychicId) // still alternating
+        val st = g.stateJson(ids[0], false, 0)
+        assertTrue(st.getBoolean("coop"))
+        assertEquals(2, st.getJSONObject("series").getInt("played"))
+    }
+
+    @Test fun bullseyeGivesBonusRoundAndSeriesEnds() {
+        val (g, _) = game(2)
+        coopRound(g, 0)
+        assertTrue(g.coopBonus)
+        assertEquals(Game.COOP_ROUNDS, g.coopLeft)
+        repeat(Game.COOP_ROUNDS) { coopRound(g, 30) }
+        assertTrue(g.coopOver)
+        assertEquals(Game.COOP_ROUNDS + 1, g.coopPlayed)
+        assertEquals(4, g.coopScore)
+        coopRound(g, 10) // a new series starts from zero
+        assertEquals(2, g.coopScore)
+        assertEquals(1, g.coopPlayed)
+    }
+
+    @Test fun thirdPlayerSwitchesBackToClassic() {
+        val (g, ids) = game(2)
+        coopRound(g, 10)
+        g.add("p3", "P3")
+        assertFalse(g.stateJson(ids[0], false, 0).getBoolean("coop"))
+        assertTrue(g.stateJson(ids[0], false, 0).getJSONObject("series").getBoolean("active"))
+        assertTrue(g.startRound())
+        assertFalse(g.coop)
+        g.submitClue("x")
+        g.guessers().forEach { g.lock(it, g.target) }
+        assertTrue(g.players.values.all { it.score == 4 })
+        g.remove("p3")
+        coopRound(g, 10)
+        assertEquals(2, g.coopScore) // the old series doesn't carry over
     }
 }

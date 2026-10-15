@@ -10,6 +10,9 @@ body[data-game=wavelength] {
 .wavelength .c-psy { color: var(--psy); }
 .wavelength .clue { font-size: 30px; font-weight: 900; color: var(--accent-text); letter-spacing: -.5px; word-break: break-word; }
 
+.wavelength .wl-team .pts { font-size: 26px; }
+.wavelength .wl-names { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; }
+
 .wavelength .wl-scale { padding: 6px 0 22px; }
 .wavelength .wl-ends { display: flex; justify-content: space-between; gap: 12px; font-weight: 800; font-size: 15px; margin-bottom: 10px; }
 .wavelength .wl-ends span:last-child { text-align: right; }

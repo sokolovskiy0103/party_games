@@ -77,6 +77,34 @@
     </div>`;
   }
 
+  // ---------- co-op (two players) ----------
+  const series = () => g().series || null;
+  /** The round on screen is a co-op one. */
+  const inCoop = () => !!(series() && series().active);
+
+  function rating(score, played) {
+    // scaled to the default series length, so bonus rounds still help
+    const k = played ? score / Math.max(played, (series() || {}).total || 7) : 0;
+    if (k >= 3.4) return 'Телепатія! 🧠';
+    if (k >= 2.6) return 'На одній хвилі 📡';
+    if (k >= 1.8) return 'Добре чуєте одне одного';
+    if (k >= 1) return 'Є контакт';
+    return 'Перешкоди на лінії 📻';
+  }
+
+  function teamCard() {
+    const se = series();
+    if (!se) return '';
+    const status = !se.active || !se.played ? `Серія з ${se.total} раундів · яблучко дає бонусний раунд`
+      : se.over ? `Серію завершено: ${se.played} раундів — нова почнеться з нуля`
+      : `Зіграно ${se.played}, лишилось ${se.left} · яблучко дає бонусний раунд`;
+    return `<div class="card wl-team">
+      <div class="score"><span class="name">Спільний рахунок</span><span class="pts">${se.active ? se.score : 0}</span></div>
+      <div class="muted small">${status}</div>
+      <div class="wl-names">${g().players.map(p => `<span><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}${me() && me().id === p.id ? ' <span class="muted small">(ти)</span>' : ''}</span>`).join('')}</div>
+    </div>`;
+  }
+
   function lockedChips() {
     const s = g();
     return `<div class="chips">${s.players.filter(p => p.inRound && p.id !== s.psychic).map(p =>
@@ -90,14 +118,19 @@
     const enough = n >= s.minPlayers;
     let h = '';
     if (s.notice) h += `<div class="notice">${esc(s.notice)}</div>`;
-    h += `<div class="card flat stack">
+    h += s.coop ? `<div class="card flat stack">
+      <b>Удвох — кооператив</b>
+      <div class="muted small">Граєте разом проти шкали: по черзі один — екстрасенс, другий ставить маркер. Очки йдуть у спільний рахунок, серія — ${(series() || {}).total || 7} раундів, а влучання в яблучко дає бонусний раунд.</div>
+    </div>` : `<div class="card flat stack">
       <b>Як грати</b>
       <div class="muted small">Екстрасенс бачить, де на шкалі між двома поняттями прихована ціль, і дає підказку. Решта ставить маркер там, де, на їхню думку, ціль. Що ближче — то більше очок.</div>
+      <div class="muted small">Удвох гра сама вмикає кооперативний режим.</div>
     </div>`;
     if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне раунд</span></div>`;
-    h += `<h2>Гравці · ${n}</h2>${scoreboard()}`;
+    h += `<h2>Гравці · ${n}</h2>${s.coop ? teamCard() : scoreboard()}`;
     if (api.isHost) {
-      h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>${s.round ? 'Наступний раунд' : 'Почати гру'}</button>`;
+      const cont = s.coop ? inCoop() && series().played > 0 && !series().over : s.round;
+      h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>${cont ? 'Наступний раунд' : 'Почати гру'}</button>`;
       if (!enough) h += `<div class="muted small center">Потрібно щонайменше ${s.minPlayers} гравці (зараз ${n}).</div>`;
     }
     return h;
@@ -106,7 +139,9 @@
   function clueView() {
     const s = g();
     const inRound = me() && me().inRound;
-    let h = `<div class="muted center">Раунд ${s.round} · екстрасенс — <b class="c-psy">${nameOf(s.psychic)}</b></div>`;
+    const se = series();
+    const num = inCoop() ? `Раунд ${se.played + 1} з ${se.played + se.left}` : `Раунд ${s.round}`;
+    let h = `<div class="muted center">${num} · екстрасенс — <b class="c-psy">${nameOf(s.psychic)}</b>${inCoop() ? ` · рахунок <b>${se.score}</b>` : ''}</div>`;
     if (isPsychic()) {
       h += `<div class="center"><span class="tag">ти екстрасенс</span></div>
         ${scale({ target: s.target })}
@@ -146,8 +181,40 @@
     return h;
   }
 
+  function coopResultView() {
+    const s = g();
+    const se = series();
+    const r = s.result || { guesses: {}, points: {}, target: 50 };
+    const guesser = Object.keys(r.guesses)[0];
+    const pts = guesser ? (r.points[guesser] || 0) : 0;
+    const marks = guesser ? [{ v: r.guesses[guesser], label: nameOf(guesser).slice(0, 1).toUpperCase(), mine: me() && me().id === guesser }] : [];
+    const fresh = animatedRound !== s.round;
+    if (fresh) setTimeout(() => { animatedRound = s.round; }, 0);
+    const verdict = !guesser ? 'Маркер не поставили' : pts >= 4 ? 'Точно в ціль! 🎯' : pts === 3 ? 'Дуже близько!' : pts === 2 ? 'Непогано' : pts === 1 ? 'Ледь зачепили' : 'Мимо цілі';
+    const detail = guesser ? `Відхилення ${Math.abs(r.guesses[guesser] - r.target)}% — +${pts} до спільного рахунку` : 'Раунд закрили раніше, тож без очок';
+    let h = `<div class="banner ${pts >= 3 ? 'good' : 'meh'} pop"><h1>${verdict}</h1>
+        <div>${detail}</div>
+        ${se.bonus ? '<div><b>Яблучко — бонусний раунд!</b></div>' : ''}
+        <div class="muted small">Підказка від ${nameOf(s.psychic)}: «${esc(s.clue || '')}»</div></div>
+      ${scale({ target: r.target, marks, fresh })}`;
+    if (se.over) {
+      h += `<div class="banner good pop"><div class="muted small">Серію завершено · ${se.played} раундів</div>
+        <h1>${se.score} очок</h1><div><b>${rating(se.score, se.played)}</b></div></div>`;
+    } else {
+      h += teamCard();
+    }
+    h += `<div class="muted small">Очки за відстань: ${(s.zones || []).map(([d, p]) => `±${d}% — ${p}`).join(', ')}.</div>`;
+    if (!s.coop) h += `<div class="notice">Гравців уже ${s.players.length} — наступний раунд буде у звичайному режимі.</div>`;
+    if (api.isHost) {
+      const label = !s.coop ? 'Наступний раунд' : se.over ? 'Нова серія' : `Наступний раунд (лишилось ${se.left})`;
+      h += `<button class="big" data-act="next" ${s.players.length >= s.minPlayers ? '' : 'disabled'}>${label}</button>`;
+    } else h += `<div class="muted center small">Хост запустить ${se.over && s.coop ? 'нову серію' : 'наступний раунд'}.</div>`;
+    return h;
+  }
+
   function resultView() {
     const s = g();
+    if (inCoop()) return coopResultView();
     const r = s.result || { guesses: {}, points: {}, target: 50 };
     const marks = Object.keys(r.guesses).map(id => ({ v: r.guesses[id], label: (((s.players.find(p => p.id === id) || {}).name) || '?').slice(0, 1).toUpperCase(), mine: me() && me().id === id }));
     const rows = Object.keys(r.guesses).sort((a, b) => Math.abs(r.guesses[a] - r.target) - Math.abs(r.guesses[b] - r.target)).map(id =>
@@ -226,7 +293,7 @@
       const conf = (act, label) => armed === act
         ? `<button class="danger" data-act="${act}">Точно? ${label}</button>`
         : `<button class="soft" data-act="arm" data-v="${act}">${label}</button>`;
-      return (s.phase !== 'LOBBY' ? conf('abort', 'Перервати раунд') : '') + conf('newGame', 'Обнулити рахунок');
+      return (s.phase !== 'LOBBY' ? conf('abort', 'Перервати раунд') : '') + conf('newGame', g().coop ? 'Почати серію заново' : 'Обнулити рахунок');
     },
 
     click(e, a) {
