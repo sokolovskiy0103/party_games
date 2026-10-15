@@ -88,3 +88,4 @@ body[data-game=hat] {
 .hat-bar button { min-height: 72px; font-size: 20px; border-radius: 18px; }
 .hat-bar .skip { flex: 1; background: var(--bg2); color: var(--text); border: 1px solid var(--line); }
 .hat-bar .got { flex: 2; background: var(--good); color: #082615; font-size: 24px; }
+.hat .spinner.small { width: 16px; height: 16px; border-width: 2px; }

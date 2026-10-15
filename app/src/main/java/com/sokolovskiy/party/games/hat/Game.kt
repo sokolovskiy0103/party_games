@@ -46,6 +46,8 @@ class Game(
     }
 
     class Card(val id: Int, val name: String, val author: String?) {
+        /** Picture chosen by the author: null = look it up automatically, "" = no picture. */
+        var pic: String? = null
         /** Time on screen per round. */
         val ms = LongArray(ROUNDS)
         val skips = IntArray(ROUNDS)
@@ -77,6 +79,8 @@ class Game(
     var turnSeconds = 60
         set(v) { field = v.coerceIn(MIN_SECONDS, MAX_SECONDS) }
     var images = true
+    /** Off: every character on screen must be guessed, no passing. */
+    var skipsAllowed = true
     /** Skip collecting: the app fills the hat itself. */
     var autoPool = false
 
@@ -176,6 +180,16 @@ class Game(
             return false
         }
         cards += Card(nextCardId++, name, pid)
+        return true
+    }
+
+    /** The author (or the host) picks another picture for a character, or none (""). */
+    fun setPic(pid: String?, isHost: Boolean, cardId: Int, url: String): Boolean {
+        val c = cards.firstOrNull { it.id == cardId } ?: return false
+        if (!isHost && (phase != Phase.COLLECT || pid == null || c.author != pid)) return false
+        val u = url.trim()
+        if (u.isNotEmpty() && (!u.startsWith("https://") || u.length > MAX_PIC_URL || u.any { it.isWhitespace() || it == '"' || it == '<' })) return false
+        c.pic = u
         return true
     }
 
@@ -369,7 +383,7 @@ class Game(
 
     /** Back into the hat, next one please. */
     fun skip(now: Long): Boolean {
-        if (phase != Phase.TURN) return false
+        if (phase != Phase.TURN || !skipsAllowed) return false
         val id = current ?: return false
         account(now)
         card(id).skips[round - 1]++
@@ -490,7 +504,7 @@ class Game(
 
     // ---------- state for clients ----------
 
-    private fun cardJson(id: Int) = card(id).let { JSONObject().put("id", it.id).put("name", it.name) }
+    private fun cardJson(id: Int) = card(id).let { JSONObject().put("id", it.id).put("name", it.name).putOpt("pic", it.pic) }
 
     fun stateJson(viewer: String?, isHost: Boolean, now: Long): JSONObject {
         val o = JSONObject()
@@ -501,6 +515,7 @@ class Game(
         o.put("perPlayer", perPlayer)
         o.put("turnSeconds", turnSeconds)
         o.put("images", images)
+        o.put("skips", skipsAllowed)
         o.put("autoPool", autoPool)
         o.put("minPlayers", MIN_PLAYERS)
         o.put("maxTeams", maxTeams())
@@ -557,7 +572,7 @@ class Game(
     fun statsJson(): JSONObject {
         val r = roundsPlayed()
         val cs = cards.map { c ->
-            JSONObject().put("id", c.id).put("name", c.name).put("author", c.author ?: JSONObject.NULL)
+            JSONObject().put("id", c.id).put("name", c.name).put("author", c.author ?: JSONObject.NULL).putOpt("pic", c.pic)
                 .put("ms", c.ms.take(r).sum())
                 .put("rounds", JSONArray(c.ms.take(r)))
                 .put("skips", c.skips.take(r).sum())
@@ -583,6 +598,7 @@ class Game(
         const val MAX_SECONDS = 120
         const val MAX_TEAMS = 6
         const val MAX_NAME = 40
+        const val MAX_PIC_URL = 600
         /** Leftover shorter than this is not worth a separate turn. */
         const val MIN_CARRY_MS = 3_000L
 

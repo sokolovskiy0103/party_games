@@ -44,46 +44,125 @@
     return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 12 || b > 14) ? few : many;
   }
 
-  // ---------- pictures from Wikipedia ----------
+  // ---------- pictures ----------
   // Looked up in the browser, so the host phone needs no internet; failures just mean no picture.
-  const pics = {};
+  // Sources, best first: the exact Ukrainian Wikipedia article → its Wikidata item (photo P18 and
+  // the English article, which also has film/cartoon images) → Wikidata search → full-text search.
+  // The author can flip through the candidates for their own characters; the choice is shared.
+  const cands = {};   // lower-case name → [url] (empty = nothing found)
   const pending = {};
-  function picUrl(name) {
-    if (!g() || !g().images || !name) return null;
+  const CACHE = 'hat.pics.';
+  function candList(name) {
     const key = name.toLowerCase();
-    if (key in pics) return pics[key];
-    const cached = store.get('hat.pic.' + key);
-    if (cached !== null) { pics[key] = cached || null; return pics[key]; }
+    if (key in cands) return cands[key];
+    const cached = store.get(CACHE + key);
+    if (cached !== null) { try { return (cands[key] = JSON.parse(cached)); } catch (_) {} }
     if (!pending[key]) {
       pending[key] = true;
-      lookup(name).then(url => {
-        pics[key] = url;
-        store.set('hat.pic.' + key, url || '');
+      candidates(name).then(list => {
+        cands[key] = list;
+        if (list.length) store.set(CACHE + key, JSON.stringify(list));
         api.render();
-      }).catch(() => { pics[key] = null; });
+      }).catch(() => { cands[key] = []; }).finally(() => { delete pending[key]; });
     }
     return null;
   }
-  async function lookup(name) {
+  /** Picture URL for a card object ({name, pic?}): the author's choice wins, then the best guess. */
+  function picFor(c) {
+    if (!g() || !g().images || !c || !c.name) return null;
+    if (typeof c.pic === 'string') return c.pic || null;
+    const list = candList(c.name);
+    return list && list[0] || null;
+  }
+
+  async function getJson(url) {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 6000);
+    try {
+      const r = await fetch(url, { signal: ctl.signal });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } finally { clearTimeout(timer); }
+  }
+  const enc = encodeURIComponent;
+  const WIKI = lang => `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*&redirects=1` +
+    `&prop=pageimages|pageprops&piprop=thumbnail&pithumbsize=480&pilicense=any&ppprop=disambiguation|wikibase_item`;
+  const WD = 'https://www.wikidata.org/w/api.php?format=json&origin=*';
+  function pagesOf(j) {
+    const ps = j && j.query && j.query.pages;
+    return ps ? Object.values(ps)
+      .filter(p => !('missing' in p) && !(p.pageprops && 'disambiguation' in p.pageprops))
+      .sort((a, b) => (a.index || 0) - (b.index || 0)) : [];
+  }
+  /** The same image reached by different URLs (thumb vs FilePath) counts once. */
+  function fileKey(u) {
+    try {
+      const url = new URL(u);
+      const parts = url.pathname.split('/');
+      let f = parts.includes('thumb') ? parts[parts.length - 2]
+        : url.pathname.includes('Special:FilePath/') ? url.pathname.split('Special:FilePath/')[1] : parts[parts.length - 1];
+      return decodeURIComponent(f).replace(/ /g, '_').toLowerCase();
+    } catch (_) { return u; }
+  }
+  async function candidates(name) {
+    const out = [], keys = [];
+    const add = u => { if (!u) return; const k = fileKey(u); if (!keys.includes(k)) { keys.push(k); out.push(u); } };
+    const step = async f => { try { await f(); } catch (_) {} };
+    const qids = [];
+
+    await step(async () => {
+      for (const p of pagesOf(await getJson(WIKI('uk') + '&titles=' + enc(name)))) {
+        add(p.thumbnail && p.thumbnail.source);
+        if (p.pageprops && p.pageprops.wikibase_item) qids.push(p.pageprops.wikibase_item);
+      }
+    });
+    await step(async () => {
+      if (!qids.length) {
+        const j = await getJson(WD + '&action=wbsearchentities&type=item&limit=3&language=uk&uselang=uk&search=' + enc(name));
+        for (const e of j.search || []) {
+          if (!/значень|disambiguation|вікімедіа|wikimedia/i.test(e.description || '')) qids.push(e.id);
+        }
+      }
+      if (!qids.length) return;
+      const ids = qids.slice(0, 2);
+      const j = await getJson(WD + '&action=wbgetentities&props=claims|sitelinks&sitefilter=enwiki&ids=' + ids.join('|'));
+      const en = [];
+      for (const id of ids) {
+        const e = j.entities && j.entities[id];
+        if (!e) continue;
+        const p18 = e.claims && e.claims.P18 && e.claims.P18[0].mainsnak.datavalue;
+        if (p18 && p18.value) add(`https://commons.wikimedia.org/wiki/Special:FilePath/${enc(p18.value)}?width=480`);
+        if (e.sitelinks && e.sitelinks.enwiki) en.push(e.sitelinks.enwiki.title);
+      }
+      if (en.length) for (const p of pagesOf(await getJson(WIKI('en') + '&titles=' + enc(en.join('|'))))) add(p.thumbnail && p.thumbnail.source);
+    });
     for (const lang of ['uk', 'en']) {
-      const u = `https://${lang}.wikipedia.org/w/api.php?action=query&format=json&origin=*` +
-        `&generator=search&gsrlimit=1&gsrsearch=${encodeURIComponent(name)}` +
-        `&prop=pageimages&piprop=thumbnail&pithumbsize=480`;
-      const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 6000);
-      try {
-        const r = await fetch(u, { signal: ctl.signal });
-        const j = await r.json();
-        const pages = j.query && j.query.pages;
-        const p = pages && Object.values(pages)[0];
-        if (p && p.thumbnail) return p.thumbnail.source;
-      } finally { clearTimeout(timer); }
+      if (out.length >= 4) break;
+      await step(async () => {
+        const j = await getJson(WIKI(lang) + '&generator=search&gsrlimit=3&gsrsearch=' + enc(name));
+        for (const p of pagesOf(j)) add(p.thumbnail && p.thumbnail.source);
+      });
     }
-    return null;
+    return out.slice(0, 6);
   }
-  function pic(name, cls = 'pic') {
-    const u = picUrl(name);
+  function pic(c, cls = 'pic') {
+    const u = picFor(c);
     return u ? `<img class="${cls}" src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '';
+  }
+  /** Author's button: the next candidate, then "no picture", then around again. */
+  function nextPic(c) {
+    const list = candList(c.name) || [];
+    const seq = [...list, ''];
+    const cur = typeof c.pic === 'string' ? c.pic : (list[0] || '');
+    const i = seq.indexOf(cur);
+    return seq[(i + 1) % seq.length];
+  }
+  function picButton(c) {
+    if (!g().images) return '';
+    const list = candList(c.name);
+    if (!list) return `<span class="spinner small"></span>`;
+    if (!list.length) return `<span class="muted small">без фото</span>`;
+    return `<button class="mini ghost" data-act="nextPic" data-id="${c.id}" title="Інша картинка">🔄</button>`;
   }
 
   // ---------- timer ----------
@@ -127,7 +206,7 @@
 
   function guessedList(list) {
     if (!list || !list.length) return '';
-    return `<div class="chips">${list.map(c => `<span class="chip">${pic(c.name, 'pic-xs')}${esc(c.name)}</span>`).join('')}</div>`;
+    return `<div class="chips">${list.map(c => `<span class="chip">${pic(c, 'pic-xs')}${esc(c.name)}</span>`).join('')}</div>`;
   }
 
   function lastTurnCard() {
@@ -146,6 +225,7 @@
       <div><b>Як грати.</b> Кожен кидає в шляпу персонажів — реальних чи вигаданих. Гравці діляться на команди.</div>
       <div>Пояснювач тягне персонажів по одному й за час ходу пояснює своїй команді якомога більше. Вгадані виходять із шляпи; раунд триває, поки шляпа не спорожніє.</div>
       <div>🗣️ Раунд 1 — словами · ☝️ Раунд 2 — одним словом · 🐊 Раунд 3 — без слів.</div>
+      ${g().skips ? '' : '<div>🚫 Пропускати не можна — пояснюй, поки не вгадають.</div>'}
       <div class="muted">Персонажі ті самі в кожному раунді. Якщо шляпа спорожніла до кінця ходу — залишок часу переходить цій команді на початок наступного раунду.</div>
     </div>`;
   }
@@ -170,8 +250,14 @@
         <div class="muted small">У шляпі буде ${s.perPlayer * n} ${plural(s.perPlayer * n, 'персонаж', 'персонажі', 'персонажів')}.</div>
         <b>Час ходу</b>
         <div class="chips">${chips('seconds', [30, 45, 60, 90], s.turnSeconds, v => v + ' с')}</div>
+        <b>Пропуски</b>
+        <div class="seg">
+          <button class="${s.skips ? 'on' : ''}" data-act="skips" data-v="1">⏭️ Можна</button>
+          <button class="${s.skips ? '' : 'on'}" data-act="skips" data-v="0">🚫 Не можна</button>
+        </div>
+        <div class="muted small">${s.skips ? 'Пропущений персонаж повертається в шляпу.' : 'Пояснюй, поки не вгадають, — кнопки «Пропустити» не буде.'}</div>
         <label class="toggle"><input type="checkbox" data-act="images" ${s.images ? 'checked' : ''}>
-          <span>Картинки персонажів з Вікіпедії <span class="muted small">(потрібен інтернет на телефонах гравців)</span></span></label>
+          <span>Картинки персонажів <span class="muted small">(Вікіпедія й Вікідані; потрібен інтернет на телефонах гравців)</span></span></label>
       </div>`;
     } else {
       h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Хост налаштовує гру</span></div>`;
@@ -202,8 +288,8 @@
       }
       if (s.err) h += `<div class="notice">${esc(s.err)}</div>`;
       if (mine.length) {
-        h += `<div class="card mine">${mine.map(c => `<div class="mine-row">${pic(c.name, 'pic-sm')}<span class="grow">${esc(c.name)}</span>
-          <button class="mini ghost" data-act="remove" data-id="${c.id}">✕</button></div>`).join('')}</div>`;
+        h += `<div class="card mine">${mine.map(c => `<div class="mine-row">${pic(c, 'pic-sm')}<span class="grow">${esc(c.name)}</span>
+          ${picButton(c)}<button class="mini ghost" data-act="remove" data-id="${c.id}">✕</button></div>`).join('')}</div>`;
       }
       if (left > 0) h += `<button class="soft" data-act="autofill">🎲 Доповнити випадковими (${left})</button>`;
     }
@@ -280,7 +366,7 @@
   }
 
   function cardView(c, big) {
-    return `<div class="hat-card ${big ? 'big' : ''} pop">${pic(c.name)}<div class="cname">${esc(c.name)}</div></div>`;
+    return `<div class="hat-card ${big ? 'big' : ''} pop">${pic(c)}<div class="cname">${esc(c.name)}</div></div>`;
   }
 
   function turnView() {
@@ -293,7 +379,8 @@
       h += s.card ? cardView(s.card, true) : '';
       h += `<div class="row small muted"><span class="grow">Вгадано: <b>${t.guessed.length}</b> · у шляпі ${s.poolLeft}</span>
         ${t.guessed.length ? `<button class="mini ghost" data-act="undo">↶ Скасувати</button>` : ''}</div>`;
-      bar = `<button class="soft skip" data-act="skip">Пропустити</button><button class="got" data-act="got">✓ Вгадали</button>`;
+      bar = (s.skips ? `<button class="soft skip" data-act="skip">Пропустити</button>` : '') +
+        `<button class="got" data-act="got">✓ Вгадали</button>`;
     } else {
       h += `<div class="center explainer">${nameOf(t.explainer)} пояснює</div>`;
       if (s.card) {
@@ -368,7 +455,7 @@
     if (shown.length) {
       const hardest = shown.slice(0, 3);
       const easiest = [...shown].sort((a, b) => a.ms - b.ms).slice(0, 3);
-      const row = c => `<div class="stat-card">${pic(c.name, 'pic-sm')}
+      const row = c => `<div class="stat-card">${pic(c, 'pic-sm')}
         <div class="grow"><b>${esc(c.name)}</b><div class="muted small">${dur(c.ms)} на екрані${c.skips ? ` · пропусків ${c.skips}` : ''}${c.author ? ` · від ${nameOf(c.author)}` : ''}</div></div></div>`;
       h += `<h2>🧱 Найважчі персонажі</h2><div class="card">${hardest.map(row).join('')}</div>`;
       h += `<h2>🪶 Найлегші</h2><div class="card">${easiest.map(row).join('')}</div>`;
@@ -484,6 +571,11 @@
         case 'per': return a.send({ t: 'settings', perPlayer: +el.dataset.v });
         case 'seconds': return a.send({ t: 'settings', seconds: +el.dataset.v });
         case 'images': return a.send({ t: 'settings', images: el.checked });
+        case 'skips': return a.send({ t: 'settings', skips: el.dataset.v === '1' });
+        case 'nextPic': {
+          const c = (g().myCards || []).find(x => x.id === +el.dataset.id);
+          return c && a.send({ t: 'pic', id: c.id, url: nextPic(c) });
+        }
         case 'collect': return a.send({ t: 'collect' });
         case 'add': return addName(a);
         case 'remove': return a.send({ t: 'remove', id: +el.dataset.id });

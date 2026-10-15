@@ -42,6 +42,7 @@ class HatModule : GameModule {
                 "got" -> if (canRun) game.got(now)
                 "skip" -> if (canRun) game.skip(now)
                 "undo" -> if (canRun) game.undo(now)
+                "pic" -> game.setPic(pid, isHost, msg.optInt("id"), msg.optString("url"))
                 "last" -> if (canRun) game.lastCard(msg.optBoolean("yes"))
             }
             if (isHost) when (msg.optString("t")) {
@@ -50,6 +51,7 @@ class HatModule : GameModule {
                     if (msg.has("seconds")) game.turnSeconds = msg.optInt("seconds")
                     if (msg.has("images")) game.images = msg.optBoolean("images")
                     if (msg.has("auto")) game.autoPool = msg.optBoolean("auto")
+                    if (msg.has("skips")) game.skipsAllowed = msg.optBoolean("skips")
                 }
                 "collect" -> game.startCollect()
                 "autoAll" -> game.autofillAll()

@@ -236,4 +236,31 @@ class GameTest {
         assertTrue(g.teams.isEmpty())
         assertEquals(0, g.round)
     }
+
+    @Test fun skipsCanBeForbidden() {
+        val (g, _) = started()
+        g.skipsAllowed = false
+        g.beginTurn(0)
+        val first = g.current
+        assertFalse(g.skip(1000))
+        assertEquals(first, g.current)
+        assertTrue(g.stateJson(null, true, 0).has("skips"))
+        assertFalse(g.stateJson(null, true, 0).getBoolean("skips"))
+    }
+
+    @Test fun authorPicksPicture() {
+        val (g, ids) = game()
+        g.startCollect()
+        g.addCard(ids[0], "Шрек")
+        val id = g.cards.last().id
+        assertFalse(g.setPic(ids[1], false, id, "https://x/a.jpg")) // not the author
+        assertFalse(g.setPic(ids[0], false, id, "javascript:alert(1)"))
+        assertTrue(g.setPic(ids[0], false, id, "https://upload.wikimedia.org/a.jpg"))
+        val mine = g.stateJson(ids[0], false, 0).getJSONArray("myCards").getJSONObject(0)
+        assertEquals("https://upload.wikimedia.org/a.jpg", mine.getString("pic"))
+        assertTrue(g.setPic(ids[0], false, id, "")) // no picture
+        assertEquals("", g.stateJson(ids[0], false, 0).getJSONArray("myCards").getJSONObject(0).getString("pic"))
+        g.addCard(ids[0], "Фродо")
+        assertFalse(g.stateJson(ids[0], false, 0).getJSONArray("myCards").getJSONObject(1).has("pic")) // auto
+    }
 }
