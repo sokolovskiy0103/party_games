@@ -6,6 +6,7 @@ import com.sokolovskiy.party.games.hat.HatModule
 import com.sokolovskiy.party.games.herd.HerdModule
 import com.sokolovskiy.party.games.chameleon.ChameleonModule
 import com.sokolovskiy.party.games.clocktower.ClocktowerModule
+import com.sokolovskiy.party.games.codenames.CodenamesModule
 import com.sokolovskiy.party.games.decrypto.DecryptoModule
 import com.sokolovskiy.party.games.draw.DrawModule
 import com.sokolovskiy.party.games.ito.ItoModule
@@ -52,6 +53,7 @@ class Hub(private val context: Context) : GameEnv {
         ChameleonModule(),
         ItoModule(),
         DecryptoModule(),
+        CodenamesModule(),
         ClocktowerModule(),
         TruthModule(),
         DrawModule(),
