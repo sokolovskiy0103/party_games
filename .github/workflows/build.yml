@@ -65,7 +65,11 @@ jobs:
         with:
           tag_name: v1.0.${{ github.run_number }}
           name: Ігри v1.0.${{ github.run_number }}
+          # The app shows the part above "---" as "Що нового" in its update dialog.
           body: |
+            ${{ github.event.head_commit.message }}
+
+            ---
             Збірка з коміту ${{ github.sha }}.
             Завантаж PartyGames.apk на телефон хоста й встанови поверх попередньої версії.
           files: PartyGames.apk

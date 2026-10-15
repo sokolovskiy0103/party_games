@@ -195,6 +195,14 @@
     if (inGame) h += conf('exitGame', 'До вибору гри');
     if (isHostPage && st.me) h += conf('leave', 'Не грати самому (тільки вести)');
     if (isHostPage && !st.me) h += `<button class="soft" data-pg="playToo">Я теж граю</button>`;
+    if (isHostPage && window.PGApp) {
+      let v = '', nv = '';
+      try { v = PGApp.version(); nv = PGApp.updateAvailable(); } catch (_) {}
+      h += nv
+        ? `<button data-pg="update">⬆️ Оновити до v${esc(nv)}</button>`
+        : `<button class="soft" data-pg="update">Перевірити оновлення</button>`;
+      if (v) h += `<div class="muted small">Версія v${esc(v)}</div>`;
+    }
     h += `<div class="muted small">Повністю зупинити сервер — «Завершити гру» у сповіщенні.</div>`;
     return h;
   }
@@ -281,6 +289,7 @@
         if (isHostPage) { spectator = true; store.set(K + 'spectator', '1'); }
         else st = null;
         return render();
+      case 'update': menuOpen = false; render(); try { window.PGApp && PGApp.checkUpdate(); } catch (_) {} return;
       case 'invite': showInvite = !showInvite; menuOpen = false; return render();
       case 'net': return send({ t: 'relay', on: el.dataset.v === 'relay' });
       case 'editRelay': showRelayUrl = true; return render();

@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -16,10 +17,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.sokolovskiy.party.update.UpdateUi
+import com.sokolovskiy.party.update.Updater
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var web: WebView
+    private lateinit var updates: UpdateUi
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +63,9 @@ class MainActivity : ComponentActivity() {
             WindowInsetsCompat.CONSUMED
         }
 
+        updates = UpdateUi(this)
+        web.addJavascriptInterface(AppBridge(), "PGApp")
+
         startForegroundService(Intent(this, PartyService::class.java))
 
         // Starting the server touches the network: do it off the UI thread.
@@ -69,6 +76,8 @@ class MainActivity : ComponentActivity() {
             }
         }.start()
 
+        updates.start()
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 // Keep the game running; leave via the notification's "Завершити гру".
@@ -77,7 +86,20 @@ class MainActivity : ComponentActivity() {
         })
     }
 
+    override fun onResume() {
+        super.onResume()
+        updates.resume()
+    }
+
+    /** `window.PGApp` on the host page: version info and the update button in the menu. */
+    private inner class AppBridge {
+        @JavascriptInterface fun version(): String = Updater.installedName(this@MainActivity)
+        @JavascriptInterface fun updateAvailable(): String = updates.available?.name ?: ""
+        @JavascriptInterface fun checkUpdate() { runOnUiThread { updates.check(manual = true) } }
+    }
+
     override fun onDestroy() {
+        updates.stop()
         web.destroy()
         super.onDestroy()
     }
