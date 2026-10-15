@@ -126,12 +126,7 @@
 
   // ---------- views ----------
   function dice() {
-    return `<svg class="logo-mark" viewBox="22 26 66 62" aria-hidden="true">
-      <g transform="rotate(-12 44 58)"><rect x="24" y="44" width="40" height="40" rx="6" fill="#ff4f8a"/>
-        <circle cx="35" cy="55" r="3.5" fill="#fff"/><circle cx="44" cy="64" r="3.5" fill="#fff"/><circle cx="53" cy="73" r="3.5" fill="#fff"/></g>
-      <g transform="rotate(14 66 46)"><rect x="47" y="30" width="38" height="38" rx="6" fill="#f5b942"/>
-        <circle cx="58" cy="40" r="3.2" fill="#0e1320"/><circle cx="74" cy="40" r="3.2" fill="#0e1320"/>
-        <circle cx="58" cy="58" r="3.2" fill="#0e1320"/><circle cx="74" cy="58" r="3.2" fill="#0e1320"/></g></svg>`;
+    return `<svg class="logo-mark" viewBox="20 21 68 68" aria-hidden="true"><g transform="rotate(16 66 45)"><path fill="#C98A1E" d="M56.4,32.2 h19.2 a6.4,6.4 0 0 1 6.4,6.4 v19.2 a6.4,6.4 0 0 1 -6.4,6.4 h-19.2 a6.4,6.4 0 0 1 -6.4,-6.4 v-19.2 a6.4,6.4 0 0 1 6.4,-6.4 z"/><path fill="#F5B942" d="M56.4,29 h19.2 a6.4,6.4 0 0 1 6.4,6.4 v19.2 a6.4,6.4 0 0 1 -6.4,6.4 h-19.2 a6.4,6.4 0 0 1 -6.4,-6.4 v-19.2 a6.4,6.4 0 0 1 6.4,-6.4 z"/><path fill="#0E1320" d="M55.184,37 a2.816,2.816 0 1 1 5.632,0 a2.816,2.816 0 1 1 -5.632,0 z M63.184,45 a2.816,2.816 0 1 1 5.632,0 a2.816,2.816 0 1 1 -5.632,0 z M71.184,53 a2.816,2.816 0 1 1 5.632,0 a2.816,2.816 0 1 1 -5.632,0 z"/></g><g transform="rotate(-14 44 63)"><path fill="#C42F6B" d="M33.8,49.2 h20.4 a6.8,6.8 0 0 1 6.8,6.8 v20.4 a6.8,6.8 0 0 1 -6.8,6.8 h-20.4 a6.8,6.8 0 0 1 -6.8,-6.8 v-20.4 a6.8,6.8 0 0 1 6.8,-6.8 z"/><path fill="#FF4F8A" d="M33.8,46 h20.4 a6.8,6.8 0 0 1 6.8,6.8 v20.4 a6.8,6.8 0 0 1 -6.8,6.8 h-20.4 a6.8,6.8 0 0 1 -6.8,-6.8 v-20.4 a6.8,6.8 0 0 1 6.8,-6.8 z"/><path fill="#FFFFFF" d="M32.508,54.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M49.508,54.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M41.008,63 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M32.508,71.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z M49.508,71.5 a2.992,2.992 0 1 1 5.984,0 a2.992,2.992 0 1 1 -5.984,0 z"/></g></svg>`;
   }
 
   function gameInfo(id) { return (st && st.games.find(x => x.id === id)) || null; }
@@ -246,7 +241,7 @@
     const g = st && st.game ? games[st.game] : null;
     const info = st && st.game ? gameInfo(st.game) : null;
     document.body.dataset.game = (st && st.game) || '';
-    $('#logo').innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Ігри`;
+    $('#logo').innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Party Games`;
     $('#hostTag').hidden = !(st && st.isHost);
     $('#menuBtn').hidden = !(st && st.isHost);
     $('#infoBtn').hidden = !(info && window.PG_RULES && PG_RULES[st.game]);
@@ -379,5 +374,5 @@
     if (g && g.key) g.key(e, api);
   });
 
-  document.addEventListener('DOMContentLoaded', () => { $('#logo').innerHTML = dice() + 'Ігри'; open(); });
+  document.addEventListener('DOMContentLoaded', () => { $('#logo').innerHTML = dice() + 'Party Games'; open(); });
 })();

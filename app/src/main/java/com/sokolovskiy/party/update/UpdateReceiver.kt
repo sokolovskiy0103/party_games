@@ -30,8 +30,8 @@ class UpdateReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_IMMUTABLE
         )
         val n = Notification.Builder(context, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
-            .setContentTitle("Ігри оновлено до v$name")
+            .setSmallIcon(com.sokolovskiy.party.R.drawable.ic_stat_party)
+            .setContentTitle("Party Games оновлено до v$name")
             .setContentText("Натисни, щоб відкрити")
             .setContentIntent(open)
             .setAutoCancel(true)

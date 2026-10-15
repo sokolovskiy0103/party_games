@@ -78,7 +78,7 @@ class PartyService : Service() {
     private fun buildNotification(): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Ігри для компанії", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CHANNEL, "Party Games", NotificationManager.IMPORTANCE_LOW)
         )
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
@@ -89,8 +89,8 @@ class PartyService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
         return Notification.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.stat_sys_upload_done)
-            .setContentTitle("Ігри: сервер працює")
+            .setSmallIcon(R.drawable.ic_stat_party)
+            .setContentTitle("Party Games: сервер працює")
             .setContentText("Гравці підключені до твого телефону")
             .setContentIntent(open)
             .addAction(Notification.Action.Builder(null, "Завершити гру", stop).build())

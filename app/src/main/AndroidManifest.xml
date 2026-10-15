@@ -16,7 +16,8 @@
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:label="Ігри"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="Party Games"
         android:supportsRtl="false"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="true"
