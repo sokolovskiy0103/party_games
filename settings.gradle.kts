@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "PartyGames"
-include(":app")
+include(":app", ":dev")

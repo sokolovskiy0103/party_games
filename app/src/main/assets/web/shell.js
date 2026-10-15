@@ -30,12 +30,21 @@
   let armed = null;
   let spectator = isHostPage && store.get(K + 'spectator') === '1';
 
+  // Dev helper: ?autojoin=Name joins without touching the form (used by the desktop 4-pane launcher).
+  const autoName = new URLSearchParams(location.search).get('autojoin');
+  function autoJoin() {
+    if (!autoName || pid || joining) return;
+    joining = true;
+    spectator = false; store.set(K + 'spectator', null);
+    send({ t: 'join', name: autoName, pid: '' });
+  }
+
   // ---------- socket ----------
   let ws = null, tries = 0;
   function open() {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     ws = new WebSocket(proto + location.host + base + 'ws' + (isHostPage ? '?host=' + encodeURIComponent(token) : ''));
-    ws.onopen = () => { tries = 0; status(true); if (pid) send({ t: 'resume', pid }); else render(); };
+    ws.onopen = () => { tries = 0; status(true); if (pid) send({ t: 'resume', pid }); else { autoJoin(); render(); } };
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } onMessage(m); };
     ws.onclose = () => { status(false); setTimeout(open, Math.min(4000, 400 * ++tries)); };
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
@@ -56,7 +65,7 @@
 
   function onMessage(m) {
     if (m.t === 'welcome') { pid = m.pid; store.set(K + 'pid', pid); joining = false; return; }
-    if (m.t === 'unknown') { pid = null; store.set(K + 'pid', null); render(); return; }
+    if (m.t === 'unknown') { pid = null; store.set(K + 'pid', null); autoJoin(); render(); return; }
     if (m.t !== 'state') return;
     clockOffset = m.now - Date.now();
     if (m.me && m.me.id !== pid) { pid = m.me.id; store.set(K + 'pid', pid); joining = false; }
@@ -68,8 +77,38 @@
   }
 
   // ---------- API for game modules ----------
+  // Browsers only allow audio after a user gesture, so the context is unlocked on the first tap.
+  let audioCtx = null;
+  function unlockAudio() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtx && AC) audioCtx = new AC();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (_) {}
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(e => document.addEventListener(e, unlockAudio, { passive: true }));
+
+  /** Three short descending beeps — "time is up". */
+  function buzzer() {
+    try {
+      unlockAudio();
+      if (!audioCtx) return;
+      const t0 = audioCtx.currentTime + 0.02;
+      [880, 740, 600].forEach((f, i) => {
+        const o = audioCtx.createOscillator(), v = audioCtx.createGain();
+        const s = t0 + i * 0.28;
+        o.type = 'square'; o.frequency.value = f;
+        v.gain.setValueAtTime(0.0001, s);
+        v.gain.exponentialRampToValueAtTime(0.25, s + 0.02);
+        v.gain.exponentialRampToValueAtTime(0.0001, s + 0.22);
+        o.connect(v); v.connect(audioCtx.destination);
+        o.start(s); o.stop(s + 0.24);
+      });
+    } catch (_) {}
+  }
+
   const api = {
-    $, esc, store,
+    $, esc, store, buzzer,
     get st() { return st; },
     get g() { return st && st.g; },
     get me() { return st && st.me; },
@@ -235,13 +274,18 @@
       if (showInvite && st.isHost) html = inviteCard() + '<div style="height:14px"></div>' + html;
     }
     keepInput($('#app'), html);
-    $('#barInner').innerHTML = bar;
+    keepInput($('#barInner'), bar);
     $('#bar').hidden = !bar;
     document.body.classList.toggle('with-bar', !!bar);
   }
 
-  /** Re-render without losing what the user is typing. */
+  /**
+   * Re-render without losing what the user is typing. Identical markup leaves the DOM alone, so a state push
+   * that changes nothing on this screen (someone else tapped) does not restart animations or eat a tap.
+   */
   function keepInput(container, html) {
+    if (container._pgHtml === html) return;
+    container._pgHtml = html;
     const a = document.activeElement;
     const saved = {};
     container.querySelectorAll('input[id]').forEach(i => { saved[i.id] = i.value; });

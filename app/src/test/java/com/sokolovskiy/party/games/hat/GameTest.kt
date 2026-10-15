@@ -104,14 +104,14 @@ class GameTest {
         assertTrue(seen[1].second != seen[3].second)
     }
 
-    @Test fun cardVisibleToExplainerAndOpponentsOnly() {
+    @Test fun cardVisibleToExplainerOnly() {
         val (g, _) = started()
         g.beginTurn(0)
         val team = g.teams[g.turnTeam]
         val mate = team.members.first { it != g.explainer }
         val opponent = g.teams.first { it.idx != g.turnTeam }.members.first()
         assertTrue(g.stateJson(g.explainer, false, 0).has("card"))
-        assertTrue(g.stateJson(opponent, false, 0).has("card"))
+        assertFalse(g.stateJson(opponent, false, 0).has("card"))
         assertFalse(g.stateJson(mate, false, 0).has("card"))
         assertFalse(g.stateJson(null, true, 0).has("card"))
     }

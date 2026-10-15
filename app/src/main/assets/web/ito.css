@@ -1,0 +1,44 @@
+/* «Сотня»: a warm coral take on the shell palette, plus the 1–100 strip and the hand. */
+body[data-game=ito] {
+  --accent: #ff8a5c;
+  --on-accent: #2a1006;
+  --accent-soft: #3d2016;
+  --accent-text: #ffc6ad;
+}
+
+.ito .head { align-items: center; }
+.ito .hearts { font-size: 18px; letter-spacing: 2px; }
+.ito .topic { font-size: 24px; font-weight: 900; color: var(--accent-text); letter-spacing: -.3px; line-height: 1.2; }
+.ito .ends { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--muted); }
+.ito .ends span:last-child { text-align: right; }
+.ito .ends b { color: var(--text); }
+.ito .bad { color: var(--bad); }
+
+.ito .strip {
+  position: relative; height: 34px; border-radius: 12px; margin: 4px 14px;
+  background: linear-gradient(90deg, #3d8bff, #8f7bff 50%, #ff5d8a);
+}
+.ito .strip .pin {
+  position: absolute; top: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%;
+  background: var(--bg); border: 2px solid #fff; display: flex; align-items: center; justify-content: center;
+  font-style: normal; font-size: 11px; font-weight: 800;
+}
+.ito .strip .pin.missed { border-color: var(--bad); color: var(--bad); }
+.ito .strip .pin.fresh { animation: ito-drop .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+
+.ito .score .num { font-weight: 900; font-size: 22px; min-width: 2.6ch; color: var(--accent); }
+.ito .score.missed .num { color: var(--bad); text-decoration: line-through; }
+.ito .clues { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ito .clues .chip { font-size: 13px; padding: 5px 9px; font-weight: 600; }
+.ito .clues .chip.empty { color: var(--muted); }
+
+.ito .mycard {
+  display: flex; gap: 14px; align-items: center; background: var(--bg2); border: 2px solid var(--accent);
+  border-radius: 18px; padding: 12px 14px;
+}
+.ito .mycard .big-num { font-size: 44px; font-weight: 900; color: var(--accent); min-width: 2.2ch; text-align: center; letter-spacing: -1px; }
+.ito .mycard input { font-size: 16px; padding: 10px 12px; }
+.ito .mycard .stack > * + * { margin-top: 6px; }
+
+@keyframes ito-drop { from { transform: translateY(-24px) scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ito .strip .pin.fresh { animation: none; } }

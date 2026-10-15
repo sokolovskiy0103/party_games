@@ -1,0 +1,56 @@
+/* «Кривава вежа»: blood red on deep night; nights get darker still. */
+body[data-game=clocktower] {
+  --accent: #e0344d;
+  --on-accent: #fff;
+  --accent-soft: #3a121a;
+  --accent-text: #ffb3be;
+  --evil: #ff5d6c;
+  --goodc: #6fc3ff;
+}
+
+.clocktower .c-evil { color: var(--evil); }
+.clocktower .c-good { color: var(--goodc); }
+.clocktower .tag.night { background: #1b1640; color: #c8bfff; }
+.clocktower .tag.day { background: #3a2d10; color: #ffd98a; }
+.clocktower.is-night .card { background: #141a2c; }
+
+.clocktower .role {
+  border-radius: 24px; padding: 20px 18px; text-align: center; border: 2px solid var(--line); background: var(--bg2);
+  min-height: 170px; display: flex; flex-direction: column; justify-content: center; gap: 8px; user-select: none; cursor: pointer;
+}
+.clocktower .role.hidden { border-style: dashed; }
+.clocktower .role.good { border-color: var(--goodc); background: linear-gradient(160deg, #10263a, #161d2e); }
+.clocktower .role.evil { border-color: var(--evil); background: linear-gradient(160deg, #3a1822, #161d2e); }
+.clocktower .role .rname { font-size: 28px; font-weight: 900; letter-spacing: -.5px; }
+.clocktower .role .kind { font-size: 14px; }
+.clocktower .role .what { color: var(--muted); }
+
+.clocktower .notes .note { border-top: 1px solid var(--line); padding-top: 8px; white-space: pre-line; }
+.clocktower .notes .note div { font-weight: 600; }
+.clocktower .events .small { color: var(--muted); }
+.clocktower .events .small:first-child { color: var(--text); }
+
+.clocktower .seats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.clocktower .seat {
+  display: flex; align-items: center; gap: 8px; text-align: left; background: var(--bg2); color: var(--text);
+  border: 2px solid var(--line); border-radius: 14px; padding: 10px; min-height: 48px; font-weight: 700;
+}
+.clocktower button.seat { cursor: pointer; }
+.clocktower .seat.dead { opacity: .55; }
+.clocktower .seat.on { border-color: var(--accent); background: var(--accent-soft); opacity: 1; }
+.clocktower .seat .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.clocktower .seat .mk { font-size: 13px; white-space: nowrap; }
+.clocktower .sn {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; border-radius: 50%;
+  background: var(--line); color: var(--muted); font-size: 12px; font-weight: 800; flex: none;
+}
+.clocktower .spinner.tiny { width: 12px; height: 12px; border-width: 2px; }
+
+.clocktower .task { border: 2px solid var(--accent); }
+.clocktower .vote { border: 2px solid var(--accent); }
+.clocktower .vote .big-line { font-size: 20px; }
+.clocktower .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.clocktower .chip.evilchip { border-color: var(--evil); }
+
+.clocktower .script .srole { display: flex; gap: 10px; align-items: flex-start; }
+.clocktower .script .em { font-size: 22px; width: 28px; text-align: center; flex: none; }

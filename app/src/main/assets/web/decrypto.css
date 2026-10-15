@@ -1,0 +1,56 @@
+/* «Шифр»: a cold terminal-green palette; the viewer's team colour tints their own screen. */
+body[data-game=decrypto] {
+  --accent: #3ee6a0;
+  --on-accent: #04170f;
+  --accent-soft: #10291f;
+  --accent-text: #a8f5d3;
+  --t0: #4da3ff;
+  --t1: #ff5d6c;
+}
+.decrypto.t0 { --accent: var(--t0); --on-accent: #04101f; --accent-soft: #11243d; --accent-text: #b9dcff; }
+.decrypto.t1 { --accent: var(--t1); --on-accent: #22050a; --accent-soft: #3a1822; --accent-text: #ffc0c7; }
+
+.decrypto .tname { font-weight: 800; }
+.decrypto .tname.t0 { color: var(--t0); }
+.decrypto .tname.t1 { color: var(--t1); }
+.decrypto .good { color: var(--good); font-weight: 700; }
+.decrypto .bad { color: var(--bad); font-weight: 700; }
+.decrypto .faint { opacity: .22; }
+.decrypto .tokens { font-size: 16px; letter-spacing: 1px; }
+.decrypto .score-head .row + .row { margin-top: 6px; }
+.decrypto .score-head .muted { margin-top: 8px; }
+
+.decrypto .team.t0 { border-color: var(--t0); }
+.decrypto .team.t1 { border-color: var(--t1); }
+
+.decrypto .n {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; border-radius: 7px;
+  background: var(--accent); color: var(--on-accent); font-weight: 900; font-size: 14px; margin-right: 6px;
+}
+.decrypto .kw { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.decrypto .kword {
+  background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 12px; padding: 10px;
+  font-weight: 800; font-size: 17px; display: flex; align-items: center; word-break: break-word;
+}
+
+.decrypto .enc { border: 2px solid var(--accent); }
+.decrypto .bigcode { font-family: ui-monospace, monospace; font-size: 48px; font-weight: 900; color: var(--accent); letter-spacing: 4px; }
+
+.decrypto .prow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.decrypto .prow:last-of-type { border-bottom: 0; }
+.decrypto .pclue { flex: 1; font-weight: 800; font-size: 18px; color: var(--accent-text); word-break: break-word; }
+.decrypto .digits { display: flex; gap: 5px; }
+.decrypto button.digit {
+  min-height: 42px; min-width: 40px; padding: 0; border-radius: 10px; background: var(--bg2); color: var(--text);
+  border: 1px solid var(--line); font-size: 17px;
+}
+.decrypto button.digit.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.decrypto .intercept { border-style: dashed; }
+
+.decrypto .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.decrypto .col { background: var(--bg2); border-radius: 10px; padding: 6px; min-width: 0; }
+.decrypto .col-head { font-weight: 800; font-size: 13px; display: flex; align-items: center; margin-bottom: 4px; word-break: break-word; }
+.decrypto .col-head .n { min-width: 20px; height: 20px; font-size: 12px; margin-right: 4px; flex: none; }
+.decrypto .bclue { font-size: 13px; padding: 3px 0; border-top: 1px solid var(--line); word-break: break-word; }
+.decrypto .rteam + .rteam { border-top: 1px solid var(--line); padding-top: 12px; }
+.decrypto .rteam > * + * { margin-top: 6px; }

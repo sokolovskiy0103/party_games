@@ -551,9 +551,8 @@ class Game(
                 .put("bonus", bonusTurn)
                 .put("deadline", deadline)
                 .put("guessed", JSONArray(turnGuessed.map { cardJson(it) })))
-            // The explainer and the other teams see the card; the guessing team does not.
-            val sees = me != null && (me.id == explainer || (me.team != null && me.team != turnTeam))
-            if (sees) current?.let { o.put("card", cardJson(it)) }
+            // Only the explainer sees the card: everyone else would learn what is left in the hat.
+            if (me != null && me.id == explainer) current?.let { o.put("card", cardJson(it)) }
         }
 
         lastTurn?.let { l ->

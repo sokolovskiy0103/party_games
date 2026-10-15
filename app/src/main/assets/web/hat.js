@@ -11,11 +11,9 @@
   };
   const TEAM_COLORS = ['#ff8a3d', '#4cc3ff', '#b98cff', '#5fdc8f', '#ff5d8f', '#ffd34d'];
 
-  let peek = false;        // opponents tap to see the card
   let armed = null;        // two-tap confirmations in the menu
   let showAll = false;     // full character list on the final screen
   let timerTotal = 0;
-  let lastCardId = null;
 
   // ---------- helpers ----------
   const g = () => api.g;
@@ -342,7 +340,7 @@
     const t = turn();
     if (!me() || isExplainer()) return '';
     if (me().team === t.team) return `<div class="card flat center">Ти в цій команді — <b>вгадуй!</b></div>`;
-    return `<div class="card flat center muted small">Ви суперники: стежте, щоб не порушували правила раунду.</div>`;
+    return '';
   }
 
   function readyView() {
@@ -383,10 +381,6 @@
         `<button class="got" data-act="got">✓ Вгадали</button>`;
     } else {
       h += `<div class="center explainer">${nameOf(t.explainer)} пояснює</div>`;
-      if (s.card) {
-        h += peek ? `<div data-act="peek">${cardView(s.card, false)}</div>`
-          : `<button class="soft big" data-act="peek">👀 Підглянути персонажа</button>`;
-      }
       h += myRoleLine();
       h += `<div class="center"><b>Вгадано: ${t.guessed.length}</b></div>${guessedList(t.guessed)}`;
       if (api.isHost) {
@@ -533,14 +527,12 @@
     onState(prev, next, a) {
       api = a;
       if (!next) return;
-      const cid = next.card ? next.card.id : null;
-      if (cid !== lastCardId) { peek = false; lastCardId = cid; }
       if (!prev || prev.phase !== next.phase) {
         armed = null;
         if (next.phase !== 'FINAL') showAll = false;
         if (prev) {
           const mineTurn = next.turn && next.me && next.turn.explainer === next.me.id;
-          if (next.phase === 'TURN_END') a.vibrate([200, 100, 200]);
+          if (next.phase === 'TURN_END') { a.vibrate([200, 100, 200]); a.buzzer(); }
           else if (next.phase === 'READY' && mineTurn) a.vibrate([80, 60, 80]);
           else a.vibrate(60);
         }
@@ -591,7 +583,6 @@
         case 'skip': return a.send({ t: 'skip' });
         case 'undo': return a.send({ t: 'undo' });
         case 'last': return a.send({ t: 'last', yes: el.dataset.v === '1' });
-        case 'peek': peek = !peek; return a.render();
         case 'nextRound': return a.send({ t: 'nextRound' });
         case 'showAll': showAll = true; return a.render();
         case 'arm': armed = el.dataset.v; return a.render();

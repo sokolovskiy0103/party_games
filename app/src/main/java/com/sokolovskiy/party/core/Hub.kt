@@ -4,7 +4,12 @@ import android.content.Context
 import android.util.Log
 import com.sokolovskiy.party.games.hat.HatModule
 import com.sokolovskiy.party.games.herd.HerdModule
+import com.sokolovskiy.party.games.chameleon.ChameleonModule
+import com.sokolovskiy.party.games.clocktower.ClocktowerModule
+import com.sokolovskiy.party.games.decrypto.DecryptoModule
+import com.sokolovskiy.party.games.ito.ItoModule
 import com.sokolovskiy.party.games.insider.InsiderModule
+import com.sokolovskiy.party.games.wavelength.WavelengthModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +46,11 @@ class Hub(private val context: Context) : GameEnv {
         InsiderModule(),
         HerdModule(context) { broadcast() },
         HatModule(),
+        WavelengthModule(),
+        ChameleonModule(),
+        ItoModule(),
+        DecryptoModule(),
+        ClocktowerModule(),
     )
     override val room = Room(modules)
 
