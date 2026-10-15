@@ -268,7 +268,7 @@
       h += `<section><h3>Застосунок</h3>${nv
         ? `<button data-pg="update">⬆️ Оновити до v${esc(nv)}</button>`
         : `<button class="soft" data-pg="update">🔄 Перевірити оновлення</button>`}
-        ${conf('quit', '⏻ Вийти', 'Точно? Гра для всіх закінчиться')}
+        ${conf('quit', '❌ Вийти', 'Точно? Гра для всіх закінчиться')}
         ${v ? `<div class="muted small">Версія v${esc(v)}</div>` : ''}</section>`;
     }
     return h + `</div>`;
