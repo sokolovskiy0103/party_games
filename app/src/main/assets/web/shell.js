@@ -28,6 +28,7 @@
   let showInvite = false;
   let rulesOpen = false;
   let showRelayUrl = false;
+  let bigQr = false;
   let armed = null;
 
   // Dev helper: ?autojoin=Name joins without touching the form (used by the desktop 4-pane launcher).
@@ -69,10 +70,13 @@
     clockOffset = m.now - Date.now();
     if (m.me && m.me.id !== pid) { pid = m.me.id; store.set(K + 'pid', pid); joining = false; }
     prev = st; st = m;
-    if (prev && prev.game !== st.game) { showInvite = false; menuOpen = false; rulesOpen = false; }
+    const switched = prev && prev.game !== st.game;
+    if (switched) { showInvite = false; menuOpen = false; rulesOpen = false; bigQr = false; }
     const g = st.game && games[st.game];
     if (g && g.onState) g.onState(prev && prev.game === st.game ? prev.g : null, st.g, api);
     render();
+    // a new screen starts at its top, not wherever the game list was scrolled to
+    if (switched) window.scrollTo(0, 0);
   }
 
   // ---------- API for game modules ----------
@@ -142,46 +146,54 @@
     </div>`;
   }
 
+  // Each returns { qr, info }: the QR image (may be empty) and the text that goes with it.
   function localQr() {
     const urls = (st.net && st.net.local) || [];
     if (!urls.length) {
-      return `<h2>Немає Wi-Fi</h2>
-        <p class="muted">Підключи телефон до Wi-Fi або увімкни точку доступу — або перемкнись на «Інтернет».</p>`;
+      return { qr: '', info: `<h2>Немає Wi-Fi</h2>
+        <p class="muted">Підключи телефон до Wi-Fi або увімкни точку доступу — або перемкнись на «Інтернет».</p>` };
     }
     const u = urls[0];
-    return `<img class="qr" src="${base}qr.svg?t=${encodeURIComponent(u.url)}" alt="QR">
-      <div class="url">${esc(u.url)}</div>
-      <p class="muted small">${u.hotspot ? 'Гравці підключаються до точки доступу цього телефону.' : 'Гравці мають бути в тій самій Wi-Fi мережі.'}</p>
-      ${urls.length > 1 ? `<div class="muted small">Інші адреси: ${urls.slice(1).map(x => esc(x.url)).join(', ')}</div>` : ''}`;
+    return {
+      qr: `<img class="qr" src="${base}qr.svg?t=${encodeURIComponent(u.url)}" alt="QR">`,
+      info: `<div class="url">${esc(u.url)}</div>
+        <p class="muted small">${u.hotspot ? 'Гравці підключаються до точки доступу цього телефону.' : 'Гравці мають бути в тій самій Wi-Fi мережі.'}</p>
+        ${urls.length > 1 ? `<div class="muted small">Інші адреси: ${urls.slice(1).map(x => esc(x.url)).join(', ')}</div>` : ''}`,
+    };
   }
 
   function relayQr() {
     const r = st.net.relay;
-    let h;
+    let qr = '', info;
     if (r.state === 'ONLINE' && r.join) {
-      h = `<img class="qr" src="${base}qr.svg?t=${encodeURIComponent(r.join)}" alt="QR">
-        <div class="code">${esc(r.code)}</div>
+      qr = `<img class="qr" src="${base}qr.svg?t=${encodeURIComponent(r.join)}" alt="QR">`;
+      info = `<div class="code">${esc(r.code)}</div>
         <div class="url">${esc(r.join)}</div>
         <p class="muted small">Працює з будь-якої мережі, навіть з мобільного інтернету. Або відкрий ${esc(r.url.replace(/^https?:\/\//, ''))} і введи код.</p>`;
     } else {
-      h = `<div class="center" style="padding:24px 0"><span class="spinner"></span></div>
+      info = `<div class="center" style="padding:12px 0"><span class="spinner"></span></div>
         <p class="muted">${esc(r.message || 'Підключаюсь…')}</p>`;
     }
-    h += showRelayUrl
+    info += showRelayUrl
       ? `<div class="row"><input id="relayUrl" type="text" value="${esc(r.url)}" style="flex:1;font-size:14px"><button class="mini" data-pg="saveRelay">OK</button></div>`
       : `<button class="mini ghost" data-pg="editRelay">Адреса сервера</button>`;
-    return h;
+    return { qr, info };
   }
 
-  function inviteCard() {
+  /** QR + network switch. Compact puts a small QR next to the text (lobby), so the game list stays near the top. */
+  function inviteCard(compact) {
     if (!st || !st.net) return '';
     const relayOn = st.net.relay.enabled;
-    return `<div class="card center stack">
+    const { qr, info } = relayOn ? relayQr() : localQr();
+    const small = compact && !bigQr;
+    return `<div class="card invite ${small ? 'compact' : 'center'} stack">
       <div class="seg">
         <button class="${relayOn ? '' : 'on'}" data-pg="net" data-v="local">📶 Wi-Fi</button>
         <button class="${relayOn ? 'on' : ''}" data-pg="net" data-v="relay">🌍 Інтернет</button>
       </div>
-      ${relayOn ? relayQr() : localQr()}
+      ${small
+        ? `<div class="inv-row">${qr ? `<button class="qr-btn" data-pg="bigQr" aria-label="Збільшити QR">${qr}</button>` : ''}<div class="inv-info stack">${info}</div></div>`
+        : `${compact && qr ? `<button class="qr-btn" data-pg="bigQr" aria-label="Зменшити QR">${qr}</button>` : qr}${info}`}
     </div>`;
   }
 
@@ -197,7 +209,7 @@
   function lobbyView() {
     let h = `<div class="stack">`;
     if (st.isHost) {
-      h += inviteCard();
+      h += inviteCard(true);
       h += `<h2>Гравці · ${st.players.length}</h2>${playersCard()}`;
       h += `<h2>Що граємо?</h2><div class="games">${st.games.map(g => {
         const enough = st.players.length >= g.minPlayers;
@@ -215,26 +227,53 @@
     return h + `</div>`;
   }
 
-  function menuView() {
+  /** Side drawer (☰ or the back gesture): everything that is not part of the current screen lives here. */
+  function drawerView() {
     const g = st.game && games[st.game];
-    const inGame = !!st.game;
+    const info = st.game ? gameInfo(st.game) : null;
+    const host = st.isHost;
     const conf = (act, label) => armed === act
       ? `<button class="danger" data-pg="${act}">Точно? ${label}</button>`
       : `<button class="soft" data-pg="arm" data-v="${act}">${label}</button>`;
-    let h = '';
-    if (inGame) h += `<button class="soft" data-pg="invite">${showInvite ? 'Сховати QR' : 'Запросити гравців (QR)'}</button>`;
-    if (inGame && g && g.menu) h += g.menu(api) || '';
-    if (inGame) h += conf('exitGame', 'До вибору гри');
-    if (isHostPage && !inGame && window.PGApp) {
+    let h = `<div class="dr-head">
+      <b>${info ? `${info.emoji} ${esc(info.title)}` : 'Party Games'}</b>
+      <button class="mini ghost" data-pg="menu" aria-label="Закрити">✕</button>
+    </div><div class="dr-body">`;
+
+    if (info) {
+      let s = '';
+      if (window.PG_RULES && PG_RULES[st.game]) s += `<button class="soft" data-pg="rules">📖 Правила</button>`;
+      if (host && g && g.menu) s += g.menu(api) || '';
+      if (host) s += conf('exitGame', '🎲 До вибору гри');
+      if (s) h += `<section><h3>Гра</h3>${s}</section>`;
+    }
+
+    h += `<section><h3>Гравці · ${st.players.length}</h3>${playersCard()}`;
+    if (host && st.game) {
+      h += `<button class="soft" data-pg="invite">${showInvite ? 'Сховати QR' : '📲 Запросити гравців'}</button>`;
+      if (showInvite) h += inviteCard(false);
+    }
+    if (!host) h += conf('leave', 'Вийти з кімнати');
+    h += `</section>`;
+
+    if (isHostPage && window.PGApp) {
       let v = '', nv = '';
       try { v = PGApp.version(); nv = PGApp.updateAvailable(); } catch (_) {}
-      h += nv
+      h += `<section><h3>Застосунок</h3>${nv
         ? `<button data-pg="update">⬆️ Оновити до v${esc(nv)}</button>`
-        : `<button class="soft" data-pg="update">Перевірити оновлення</button>`;
-      if (v) h += `<div class="muted small">Версія v${esc(v)}</div>`;
+        : `<button class="soft" data-pg="update">Перевірити оновлення</button>`}
+        <div class="muted small">${v ? `Версія v${esc(v)}. ` : ''}Повністю зупинити сервер — «Завершити гру» у сповіщенні.</div></section>`;
+    } else if (host) {
+      h += `<section><div class="muted small">Повністю зупинити сервер — «Завершити гру» у сповіщенні.</div></section>`;
     }
-    h += `<div class="muted small">Повністю зупинити сервер — «Завершити гру» у сповіщенні.</div>`;
-    return h;
+    return h + `</div>`;
+  }
+
+  function setDrawer(open) {
+    if (menuOpen === open) return;
+    menuOpen = open; armed = null;
+    if (!open) showInvite = false;
+    render();
   }
 
   function render() {
@@ -243,7 +282,9 @@
     document.body.dataset.game = (st && st.game) || '';
     $('#logo').innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Party Games`;
     $('#hostTag').hidden = !(st && st.isHost);
-    $('#menuBtn').hidden = !(st && st.isHost);
+    const joined = !!(pid && st && st.me);
+    $('#menuBtn').hidden = !joined;
+    if (!joined) menuOpen = false;
     $('#infoBtn').hidden = !(info && window.PG_RULES && PG_RULES[st.game]);
     const rulesEl = $('#rules');
     rulesEl.hidden = !(rulesOpen && info && window.PG_RULES && PG_RULES[st.game]);
@@ -255,9 +296,11 @@
     }
     $('#extra').innerHTML = g && g.extra ? (g.extra(api) || '') : '';
 
-    const menu = $('#menu');
-    menu.hidden = !(menuOpen && st && st.isHost);
-    if (!menu.hidden) menu.innerHTML = menuView();
+    const drawer = $('#drawer');
+    drawer.classList.toggle('open', menuOpen);
+    drawer.setAttribute('aria-hidden', String(!menuOpen));
+    document.body.classList.toggle('drawer-open', menuOpen);
+    if (menuOpen) keepInput($('#drawerInner'), drawerView());
 
     let html = '', bar = '';
     const needsJoin = !pid || !st || !st.me;
@@ -271,7 +314,6 @@
     } else {
       const out = g.render(api) || '';
       if (typeof out === 'string') html = out; else { html = out.html || ''; bar = out.bar || ''; }
-      if (showInvite && st.isHost) html = inviteCard() + '<div style="height:14px"></div>' + html;
     }
     keepInput($('#app'), html);
     keepInput($('#barInner'), bar);
@@ -301,18 +343,42 @@
   PG.keepInput = keepInput;
 
   /**
-   * Back gesture of the host app (called from MainActivity). Peels one layer: dialog, menu, QR, then a game's own
-   * screen, then opens the menu inside a game. Returns true when it handled the gesture.
+   * Back gesture of the host app (called from MainActivity). Peels one layer: rules, drawer, a game's own screen;
+   * inside a game it then slides the drawer in (the edge swipe "pulls" it out). Returns true when it handled it.
    */
   PG.back = function () {
     if (rulesOpen) { rulesOpen = false; render(); return true; }
-    if (menuOpen) { menuOpen = false; armed = null; render(); return true; }
-    if (showInvite) { showInvite = false; render(); return true; }
+    if (menuOpen) { setDrawer(false); return true; }
+    if (bigQr) { bigQr = false; render(); return true; }
     const g = st && st.game ? games[st.game] : null;
     if (g && g.back && g.back(api)) return true;
-    if (st && st.isHost && st.game) { menuOpen = true; armed = null; render(); return true; }
+    if (st && st.me && st.game) { setDrawer(true); return true; }
     return false;
   };
+
+  // Swipe the drawer back to the right to close it; the panel follows the finger.
+  (function swipeToClose() {
+    let x0 = null, y0 = 0, dx = 0, horiz = null;
+    const panel = () => $('#drawer .drawer-panel');
+    document.addEventListener('touchstart', e => {
+      if (!menuOpen || !e.target.closest('#drawer')) return;
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; horiz = null;
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+      if (x0 == null) return;
+      const t = e.touches[0];
+      if (horiz == null && Math.abs(t.clientX - x0) + Math.abs(t.clientY - y0) > 8) horiz = Math.abs(t.clientX - x0) > Math.abs(t.clientY - y0);
+      if (!horiz) return;
+      dx = Math.max(0, t.clientX - x0);
+      const p = panel(); p.style.transition = 'none'; p.style.transform = `translateX(${dx}px)`;
+    }, { passive: true });
+    document.addEventListener('touchend', () => {
+      if (x0 == null) return;
+      x0 = null;
+      const p = panel(); p.style.transition = ''; p.style.transform = '';
+      if (horiz && dx > 70) setDrawer(false);
+    });
+  })();
 
   // ---------- actions ----------
   function join() {
@@ -329,8 +395,9 @@
   function shellAct(act, el) {
     switch (act) {
       case 'join': return join();
-      case 'rules': rulesOpen = !rulesOpen; return render();
-      case 'menu': menuOpen = !menuOpen; armed = null; return render();
+      case 'rules': rulesOpen = !rulesOpen; if (rulesOpen) { menuOpen = false; armed = null; } return render();
+      case 'menu': return setDrawer(!menuOpen);
+      case 'bigQr': bigQr = !bigQr; return render();
       case 'arm': armed = el.dataset.v; return render();
       case 'kick': {
         const key = 'kick' + el.dataset.v;
@@ -344,8 +411,8 @@
         send({ t: 'leave' }); pid = null; store.set(K + 'pid', null);
         st = null;
         return render();
-      case 'update': menuOpen = false; render(); try { window.PGApp && PGApp.checkUpdate(); } catch (_) {} return;
-      case 'invite': showInvite = !showInvite; menuOpen = false; return render();
+      case 'update': setDrawer(false); try { window.PGApp && PGApp.checkUpdate(); } catch (_) {} return;
+      case 'invite': showInvite = !showInvite; return render();
       case 'net': return send({ t: 'relay', on: el.dataset.v === 'relay' });
       case 'editRelay': showRelayUrl = true; return render();
       case 'saveRelay': {
@@ -360,14 +427,19 @@
   document.addEventListener('click', e => {
     keepAwake();
     if (rulesOpen && e.target.id === 'rules') { rulesOpen = false; return render(); }
+    if (menuOpen && e.target.id === 'drawer') return setDrawer(false);
     const el = e.target.closest('[data-pg]');
     if (el) { if (!el.disabled) shellAct(el.dataset.pg, el); return; }
     const g = st && st.game ? games[st.game] : null;
     if (g && g.click) g.click(e, api);
+    // a game's confirmed menu action (abort, new game…) is done — get the drawer out of the way
+    const act = e.target.closest('#drawer [data-act]');
+    if (act && act.dataset.act !== 'arm') setDrawer(false);
   });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && rulesOpen) { rulesOpen = false; return render(); }
+    if (e.key === 'Escape' && menuOpen) return setDrawer(false);
     if (e.key === 'Enter' && e.target.id === 'name') return join();
     if (e.key === 'Enter' && e.target.id === 'relayUrl') return shellAct('saveRelay');
     const g = st && st.game ? games[st.game] : null;

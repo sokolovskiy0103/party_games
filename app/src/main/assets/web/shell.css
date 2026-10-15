@@ -42,7 +42,12 @@ p { margin: 0; }
 .grow { flex: 1; }
 .stack > * + * { margin-top: 14px; }
 
-.top { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; min-height: 36px; }
+/* stays on screen, so ☰ is always one tap away */
+.top {
+  position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 8px; min-height: 40px;
+  margin: -12px -16px 14px; padding: calc(8px + env(safe-area-inset-top)) 16px 8px; background: var(--bg);
+  transition: background-color .3s;
+}
 .logo { font-weight: 800; font-size: 20px; display: flex; align-items: center; gap: 8px; letter-spacing: .2px; }
 .logo-mark { width: 30px; height: 30px; }
 .logo-emoji { font-size: 22px; }
@@ -51,7 +56,34 @@ p { margin: 0; }
 
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; }
 .card.flat { background: var(--bg2); }
-.menu { margin-bottom: 14px; display: grid; gap: 8px; }
+
+/* ---------- side drawer (☰ / back gesture) ---------- */
+button.burger { width: 40px; min-height: 40px; padding: 0; font-size: 20px; border-radius: 12px; }
+.drawer {
+  position: fixed; inset: 0; z-index: 40; background: rgba(5, 8, 16, 0);
+  visibility: hidden; transition: background-color .25s, visibility 0s .25s;
+}
+.drawer.open { visibility: visible; background: rgba(5, 8, 16, .6); transition: background-color .25s; }
+.drawer-panel {
+  position: absolute; top: 0; right: 0; bottom: 0; width: min(86vw, 380px);
+  background: var(--bg); border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgba(0, 0, 0, .4);
+  transform: translateX(100%); transition: transform .25s cubic-bezier(.2, .8, .2, 1);
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.drawer.open .drawer-panel { transform: none; }
+body.drawer-open { overflow: hidden; }
+.dr-head {
+  position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px; background: var(--bg); border-bottom: 1px solid var(--line); font-size: 17px;
+}
+.dr-head button { width: 36px; min-height: 36px; padding: 0; font-size: 16px; }
+.dr-body { padding: 4px 16px calc(24px + env(safe-area-inset-bottom)); }
+.dr-body section { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.dr-body section:last-child { border-bottom: 0; }
+.dr-body h3 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.dr-body button { width: 100%; text-align: left; }
+.dr-body button.mini, .dr-body .seg button, .dr-body .chip button { width: auto; text-align: center; }
+.dr-body .card { padding: 12px; }
 
 .tag {
   display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
@@ -94,6 +126,16 @@ input[type=text]:focus { border-color: var(--accent); }
 .qr { background: #fff; border-radius: 16px; padding: 10px; width: min(70vw, 260px); margin: 0 auto; display: block; }
 .url { font-family: ui-monospace, monospace; font-size: 14px; word-break: break-all; color: var(--muted); }
 .code { font-family: ui-monospace, monospace; font-size: 40px; font-weight: 900; letter-spacing: 8px; color: var(--accent); }
+.qr-btn { display: block; background: none; padding: 0; min-height: 0; border-radius: 16px; margin: 0 auto; }
+.invite.compact .seg { display: flex; }
+.invite.compact .seg button { flex: 1; }
+.inv-row { display: flex; gap: 14px; align-items: center; }
+.inv-row .qr-btn { flex: none; margin: 0; }
+.inv-row .qr { width: 128px; padding: 6px; border-radius: 12px; }
+.inv-info { min-width: 0; flex: 1; }
+.inv-info > * + * { margin-top: 6px; }
+.inv-info .code { font-size: 30px; letter-spacing: 4px; line-height: 1; }
+.inv-info .url { font-size: 13px; color: var(--text); }
 
 /* game picker */
 .games { display: grid; gap: 10px; }

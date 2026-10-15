@@ -7,6 +7,7 @@
   let armed = null;     // two-tap confirmations
   let clueN = 1;        // number picked for the clue being written
   let flip = null;      // card that has just been opened (animated once)
+  let viewPick = null;  // Duet: board view the player picked by hand ('table' | 'key'); reset every turn
 
   const TEAMS = [{ name: 'Сині', gen: 'синіх', icon: '🔵' }, { name: 'Червоні', gen: 'червоних', icon: '🔴' }];
   const SPICES = [['CLEAN', '😇 Звичайні'], ['MIXED', '🎲 Трохи 18+'], ['ADULT', '🔥 18+']];
@@ -30,14 +31,31 @@
     return `<span class="tname side">${names}</span>`;
   }
 
+  /**
+   * Duet board view. 'table' (guesser) shows only what is on the table — opened or not; 'key' (clue giver) shows my
+   * key and greys out opened cards, so a key tint is never mistaken for an opened agent. Follows the role by default.
+   */
+  function duetView() {
+    const s = g(), m = me();
+    if (!duet() || s.phase !== 'PLAY' || !m || myTeam() < 0) return null;
+    if (viewPick) return viewPick;
+    if (s.step === 'CLUE') return m.giver ? 'key' : 'table';
+    if (s.step === 'GUESS') return m.guesser ? 'table' : 'key';
+    return 'table';
+  }
+
   // ---------- board ----------
   function cardHtml(c, i) {
     const s = g();
     const over = s.phase === 'OVER';
+    const view = duetView();
     const cls = ['cn-card'];
     let marks = '';
-    if (c.open) cls.push('open', 'c-' + c.open);
-    else if (c.key) cls.push('k-' + c.key);
+    if (view === 'key') {
+      if (c.open) cls.push('gone');
+      else if (c.key) cls.push('k-' + c.key);
+    } else if (c.open) cls.push('open', 'c-' + c.open);
+    else if (c.key && view !== 'table') cls.push('k-' + c.key);
     if (over && duet()) {
       // both keys: left half — first side, right half — second side
       marks += `<span class="kk kk0 k-${c.k0}"></span><span class="kk kk1 k-${c.k1}"></span>`;
@@ -58,13 +76,22 @@
   }
 
   function board() {
-    return `<div class="cn-grid">${(g().cards || []).map(cardHtml).join('')}</div>`;
+    const view = duetView();
+    const grid = `<div class="cn-grid">${(g().cards || []).map(cardHtml).join('')}</div>`;
+    if (!view) return grid;
+    return `<div class="seg cn-view">
+        <button class="${view === 'table' ? 'on' : ''}" data-act="view" data-v="table">🔍 Вгадувач</button>
+        <button class="${view === 'key' ? 'on' : ''}" data-act="view" data-v="key">🗝️ Загадувач</button>
+      </div>
+      <div class="cn-board v-${view}">${grid}</div>`;
   }
 
   function legend() {
     const s = g();
+    const view = duetView();
     if (s.phase === 'OVER' && duet()) return `<div class="muted small">Ліва половина карти — ключ: ${sideLabel(0)}, права — ${sideLabel(1)}. 🟩 агент, ⬛ вбивця.</div>`;
-    if (duet()) return `<div class="muted small">Зеленим підсвічено агентів на <b>твоєму</b> ключі, темним — вбивць. Відкриваєте ви карти за ключем партнера. 🚶 — перехожий на твоєму ключі, 🧍 — на ключі партнера.</div>`;
+    if (view === 'key') return `<div class="muted small"><b>Твій ключ</b> — партнер його не бачить. 🟩 агенти, ⬛ вбивці, світлі — перехожі. Уже відкриті карти погашені.</div>`;
+    if (view === 'table') return `<div class="muted small"><b>Стіл</b> — лише відкриті карти. Відкриваєте за ключем партнера. 🚶 — перехожий на твоєму ключі, 🧍 — на ключі партнера (такої карти вже не відкрити).</div>`;
     if (me() && me().captain && s.phase === 'PLAY') return '<div class="muted small">Ти капітан — бачиш увесь ключ. Мовчи й не підказуй жестами.</div>';
     return '';
   }
@@ -260,6 +287,7 @@
       const turnChanged = !prev || prev.phase !== next.phase || prev.step !== next.step || prev.turn !== next.turn;
       if (turnChanged) {
         armed = null;
+        viewPick = null;
         if (next.step === 'CLUE') {
           clueN = 1;
           const el = document.getElementById('cnClue');
@@ -292,6 +320,7 @@
         case 'start': return a.send({ t: 'start' });
         case 'lobby': return a.send({ t: 'lobby' });
         case 'num': clueN = +el.dataset.v; return a.render();
+        case 'view': viewPick = el.dataset.v; return a.render();
         case 'clue': return sendClue(a);
         case 'point': armed = null; return a.send({ t: 'point', i: +el.dataset.i });
         case 'open': armed = null; return a.send({ t: 'open', i: +el.dataset.i });

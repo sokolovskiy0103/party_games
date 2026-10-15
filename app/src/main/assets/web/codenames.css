@@ -68,6 +68,14 @@ body[data-game=codenames] {
 .codenames .cn-card.open .w { opacity: .85; }
 .codenames .cn-skull { position: absolute; font-size: 28px; opacity: .35; }
 
+/* duet: guesser view (the table) vs clue-giver view (my key) — framed differently so they can't be mixed up */
+.codenames .cn-view { display: flex; }
+.codenames .cn-view button { flex: 1; }
+.codenames .cn-board { border-radius: 14px; padding: 6px; border: 2px solid var(--line); }
+.codenames .cn-board.v-key { border: 2px dashed var(--cn-green); background: #10241a; }
+.codenames .cn-card.gone { background: #262a35; color: #6f7686; box-shadow: none; }
+.codenames .cn-card.gone .w { text-decoration: line-through; }
+
 /* duet game over: both keys as halves */
 .codenames .kk { position: absolute; top: 0; bottom: 0; width: 50%; opacity: .55; }
 .codenames .kk0 { left: 0; }
