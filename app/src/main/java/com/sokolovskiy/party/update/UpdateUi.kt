@@ -10,7 +10,6 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import com.sokolovskiy.party.PartyHost
-import java.io.File
 
 /**
  * The on-screen part of self-update: a check on launch (quiet unless there is a new
@@ -26,20 +25,16 @@ class UpdateUi(private val activity: Activity) {
     private var checking = false
     private var waitingForPermission: Release? = null
     private var progressDialog: AlertDialog? = null
-    /** The downloaded APK, kept for the fallback install if the session gets aborted. */
-    private var apk: File? = null
     @Volatile private var cancelled = false
 
     private val dialogTheme = android.R.style.Theme_DeviceDefault_Dialog_Alert
 
     fun start() {
         UpdateReceiver.clearNotification(activity)
-        UpdateReceiver.listener = { r -> activity.runOnUiThread { onInstallResult(r) } }
         check(manual = false)
     }
 
     fun stop() {
-        UpdateReceiver.listener = null
         progressDialog?.dismiss()
     }
 
@@ -131,50 +126,18 @@ class UpdateUi(private val activity: Activity) {
                         if (p >= 0) { bar.isIndeterminate = false; bar.progress = (p * 100).toInt(); label.text = "Завантажую v${r.name}… ${(p * 100).toInt()}%" }
                     }
                 }
-                activity.runOnUiThread { apk = file; label.text = "Встановлюю… застосунок перезапуститься"; bar.isIndeterminate = true }
-                Updater.install(activity, file)
+                file
             }
             activity.runOnUiThread {
-                if (res.isFailure) {
-                    progressDialog?.dismiss()
-                    if (!cancelled) toast("Не вдалося оновити: ${res.exceptionOrNull()?.message ?: "помилка"}")
+                progressDialog?.dismiss()
+                res.onSuccess { file ->
+                    runCatching { Updater.installViaSystemUi(activity, file) }
+                        .onFailure { toast("Не вдалося відкрити інсталятор: ${it.message}") }
+                }.onFailure {
+                    if (!cancelled) toast("Не вдалося оновити: ${it.message ?: "помилка"}")
                 }
-                // On success the receiver reports back (confirmation screen or done).
             }
         }.start()
-    }
-
-    private fun onInstallResult(r: UpdateReceiver.Result) {
-        when (r) {
-            is UpdateReceiver.Result.NeedsConfirmation -> {
-                progressDialog?.dismiss()
-                runCatching { activity.startActivity(r.confirm) }.onFailure { offerSystemInstall(null) }
-            }
-            UpdateReceiver.Result.Success -> { /* the process is about to be replaced */ }
-            is UpdateReceiver.Result.Cancelled -> { progressDialog?.dismiss(); offerSystemInstall(r.message) }
-            is UpdateReceiver.Result.Failed -> { progressDialog?.dismiss(); toast(r.message) }
-        }
-    }
-
-    /**
-     * The session install was aborted. That is either the user's "Cancel" or a vendor
-     * installer refusing session installs, so offer the plain system installer instead.
-     */
-    private fun offerSystemInstall(reason: String?) {
-        val file = apk?.takeIf { it.exists() }
-        if (file == null || activity.isFinishing) { toast("Оновлення скасовано"); return }
-        val msg = "Встановлення не завершилось" +
-            (reason?.takeIf { it.isNotBlank() }?.let { " ($it)" } ?: "") +
-            ".\n\nЯкщо ти не натискав «Скасувати», спробуй встановити через системний інсталятор."
-        AlertDialog.Builder(activity, dialogTheme)
-            .setTitle("Оновлення скасовано")
-            .setMessage(msg)
-            .setPositiveButton("Встановити") { _, _ ->
-                runCatching { Updater.installViaSystemUi(activity, file) }
-                    .onFailure { toast("Не вдалося відкрити інсталятор: ${it.message}") }
-            }
-            .setNegativeButton("Закрити", null)
-            .show()
     }
 
     private fun gameRunning(): Boolean =

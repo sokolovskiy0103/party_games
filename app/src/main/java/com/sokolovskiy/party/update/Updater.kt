@@ -1,10 +1,8 @@
 package com.sokolovskiy.party.update
 
 import android.app.Activity
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInstaller
 import android.os.Build
 import androidx.core.content.FileProvider
 import org.json.JSONObject
@@ -15,7 +13,7 @@ import java.net.URL
 
 /**
  * Self-update from GitHub Releases: check the latest release, download its APK and
- * hand it to [PackageInstaller]. Every build is signed with the same key, so this is
+ * hand it to the system installer. Every build is signed with the same key, so this is
  * an in-place update that keeps the app's data.
  *
  * On Android 12+ the update goes through without a confirmation dialog once this app
@@ -82,42 +80,9 @@ object Updater {
         }
     }
 
-    /** Hands the APK to the system installer; the result arrives in [UpdateReceiver]. */
-    @Throws(IOException::class)
-    fun install(context: Context, apk: File) {
-        val installer = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(context.packageName)
-            setSize(apk.length())
-            if (Build.VERSION.SDK_INT >= 31) {
-                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-            }
-        }
-        val id = installer.createSession(params)
-        try {
-            installer.openSession(id).use { session ->
-                session.openWrite("base.apk", 0, apk.length()).use { out ->
-                    apk.inputStream().use { it.copyTo(out, 64 * 1024) }
-                    session.fsync(out)
-                }
-                val intent = Intent(context, UpdateReceiver::class.java).setAction(UpdateReceiver.ACTION_STATUS)
-                // Must be mutable: the installer fills in the status extras.
-                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-                    (if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0)
-                val pending = PendingIntent.getBroadcast(context, id, intent, flags)
-                session.commit(pending.intentSender)
-            }
-        } catch (e: Exception) {
-            runCatching { installer.abandonSession(id) }
-            throw if (e is IOException) e else IOException(e.message ?: e.toString(), e)
-        }
-    }
-
     /**
-     * Fallback for when the session install is aborted by the system (some vendor
-     * installers, e.g. MIUI/HyperOS, cancel sessions from third-party apps): opens the
-     * APK in the regular system installer. No result callback; MY_PACKAGE_REPLACED
-     * still fires on success.
+     * Opens the APK in the regular system installer. (The PackageInstaller session path was dropped: vendor
+     * installers abort it.) No result callback; MY_PACKAGE_REPLACED fires on success.
      */
     fun installViaSystemUi(activity: Activity, apk: File) {
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.update", apk)

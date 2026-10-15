@@ -305,6 +305,20 @@
   }
   PG.keepInput = keepInput;
 
+  /**
+   * Back gesture of the host app (called from MainActivity). Peels one layer: dialog, menu, QR, then a game's own
+   * screen, then opens the menu inside a game. Returns true when it handled the gesture.
+   */
+  PG.back = function () {
+    if (rulesOpen) { rulesOpen = false; render(); return true; }
+    if (menuOpen) { menuOpen = false; armed = null; render(); return true; }
+    if (showInvite) { showInvite = false; render(); return true; }
+    const g = st && st.game ? games[st.game] : null;
+    if (g && g.back && g.back(api)) return true;
+    if (st && st.isHost && st.game) { menuOpen = true; armed = null; render(); return true; }
+    return false;
+  };
+
   // ---------- actions ----------
   function join() {
     const input = $('#name');

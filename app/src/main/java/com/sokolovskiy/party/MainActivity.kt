@@ -80,8 +80,11 @@ class MainActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // Keep the game running; leave via the notification's "Завершити гру".
-                moveTaskToBack(true)
+                // The page closes dialogs / menus first; only when it has nothing to close do we leave the screen
+                // (the game keeps running; stop it via the notification's "Завершити гру").
+                web.evaluateJavascript("(window.PG&&PG.back&&PG.back())===true") { handled ->
+                    if (handled != "true") moveTaskToBack(true)
+                }
             }
         })
     }
