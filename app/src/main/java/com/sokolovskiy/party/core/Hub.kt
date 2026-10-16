@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.sokolovskiy.party.games.hat.HatModule
 import com.sokolovskiy.party.games.herd.HerdModule
+import com.sokolovskiy.party.games.bomb.BombModule
 import com.sokolovskiy.party.games.chameleon.ChameleonModule
 import com.sokolovskiy.party.games.clocktower.ClocktowerModule
 import com.sokolovskiy.party.games.codenames.CodenamesModule
@@ -54,6 +55,7 @@ class Hub(private val context: Context) : GameEnv {
         ItoModule(),
         DecryptoModule(),
         CodenamesModule(),
+        BombModule(),
         ClocktowerModule(),
         TruthModule(),
         DrawModule(),

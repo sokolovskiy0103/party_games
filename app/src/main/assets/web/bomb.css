@@ -1,0 +1,71 @@
+/* «Сапери»: a hazard-amber take on the shell palette, plus wire tiles, the fuse and the cut board. */
+body[data-game=bomb] {
+  --accent: #ffb020;
+  --on-accent: #2a1a00;
+  --accent-soft: #3a2a10;
+  --accent-text: #ffd98a;
+  --wire-b: #3d8bff;
+  --wire-y: #ffd23f;
+  --wire-r: #ff4d5e;
+}
+
+.bomb .head { align-items: center; }
+.bomb .good { color: var(--good); }
+
+/* Fuse: one segment per allowed mistake, then the blast. */
+.bomb .fuse { display: inline-flex; gap: 4px; align-items: center; }
+.bomb .seg-f { width: 18px; height: 10px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--line); }
+.bomb .seg-f.on { background: var(--bad); border-color: var(--bad); }
+.bomb .seg-f.boom { width: auto; height: auto; border: 0; background: none; font-size: 16px; opacity: .35; }
+.bomb .seg-f.boom.on { opacity: 1; }
+
+/* Wire tiles */
+.bomb .hand { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bomb .wire {
+  position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 34px; height: 48px; padding: 0 4px; border-radius: 9px; background: var(--bg2); border: 2px solid var(--line);
+  font-style: normal; user-select: none; transition: transform .12s;
+}
+.bomb .mine .wire { min-width: 40px; height: 56px; }
+.bomb .wire b { font-size: 17px; font-weight: 900; line-height: 1; }
+.bomb .mine .wire b { font-size: 20px; }
+.bomb .wire i { font-style: normal; font-size: 9px; color: var(--muted); margin-top: 3px; }
+.bomb .wire.hidden b { color: var(--muted); }
+.bomb .wire.k-b { border-color: var(--wire-b); }
+.bomb .wire.k-b b { color: #9cc4ff; }
+.bomb .wire.k-y { border-color: var(--wire-y); }
+.bomb .wire.k-y b { color: var(--wire-y); }
+.bomb .wire.k-r { border-color: var(--wire-r); background: var(--bad-bg); }
+.bomb .wire.k-r b { color: var(--wire-r); }
+.bomb .wire.info { border-style: dashed; box-shadow: 0 0 0 2px var(--accent-soft); }
+.bomb .mine .wire.info::after { content: '👁'; position: absolute; top: -8px; right: -6px; font-size: 11px; }
+.bomb .wire.cut { opacity: .45; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.06) 6px 12px); }
+.bomb .wire.cut b { text-decoration: line-through; }
+.bomb .wire.pick { cursor: pointer; border-color: var(--accent); }
+.bomb .wire.pick:active { transform: scale(.92); }
+.bomb .wire[data-act=show] { cursor: pointer; outline: 2px solid var(--accent); outline-offset: 2px; }
+.bomb .wire.sel { background: var(--accent); border-color: var(--accent); transform: translateY(-4px); }
+.bomb .wire.sel b, .bomb .wire.sel i { color: var(--on-accent); }
+.bomb .wire.last { animation: bomb-flash 1.2s ease-out 1; }
+
+.bomb .mate.turn { border: 2px solid var(--accent); }
+.bomb .act { border: 2px solid var(--accent); }
+.bomb .your-turn { font-weight: 900; font-size: 20px; color: var(--accent-text); }
+.bomb .guesses .chip { min-width: 46px; text-align: center; font-weight: 800; font-size: 18px; }
+
+/* Board of cut counts */
+.bomb .board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.bomb .cell { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; border-radius: 10px; background: var(--bg2); }
+.bomb .cell b { font-size: 15px; }
+.bomb .cell.done { opacity: .4; }
+.bomb .pips { display: flex; gap: 2px; }
+.bomb .pips i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+.bomb .pips i.on { background: var(--wire-b); }
+
+.bomb .levels .lvl { text-align: left; width: 100%; display: block; padding: 10px 12px; border-radius: 12px; }
+.bomb .levels .lvl.on { background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent-text); }
+.bomb .log div { padding: 4px 0; font-size: 14px; }
+.bomb .log .fresh { font-weight: 700; }
+
+@keyframes bomb-flash { 0% { box-shadow: 0 0 0 6px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .bomb .wire.last { animation: none; } .bomb .wire { transition: none; } }
