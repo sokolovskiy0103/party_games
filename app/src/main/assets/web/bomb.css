@@ -1,71 +1,116 @@
-/* «Сапери»: a hazard-amber take on the shell palette, plus wire tiles, the fuse and the cut board. */
+/* «Сапери»: hazard-amber accents, bomb panels with real-looking wires, the fuse, the board and tools. */
 body[data-game=bomb] {
   --accent: #ffb020;
   --on-accent: #2a1a00;
   --accent-soft: #3a2a10;
   --accent-text: #ffd98a;
-  --wire-b: #3d8bff;
-  --wire-y: #ffd23f;
-  --wire-r: #ff4d5e;
+  --metal: #2a3245;
+  --metal-hi: #3b4560;
 }
 
 .bomb .head { align-items: center; }
 .bomb .good { color: var(--good); }
+.bomb h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* Fuse: one segment per allowed mistake, then the blast. */
 .bomb .fuse { display: inline-flex; gap: 4px; align-items: center; }
 .bomb .seg-f { width: 18px; height: 10px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--line); }
-.bomb .seg-f.on { background: var(--bad); border-color: var(--bad); }
-.bomb .seg-f.boom { width: auto; height: auto; border: 0; background: none; font-size: 16px; opacity: .35; }
+.bomb .seg-f.on { background: var(--bad); border-color: var(--bad); box-shadow: 0 0 8px var(--bad); }
+.bomb .seg-f.boom { width: auto; height: auto; border: 0; background: none; box-shadow: none; font-size: 16px; opacity: .35; }
 .bomb .seg-f.boom.on { opacity: 1; }
+.bomb .clock { align-items: center; }
+.bomb .clock .bar i { display: block; height: 100%; background: var(--accent); transition: width .25s linear; }
+.bomb #bombTimer { font-weight: 800; min-width: 4ch; }
+.bomb #bombTimer.low { color: var(--bad); }
 
-/* Wire tiles */
-.bomb .hand { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.bomb .wire {
-  position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
-  min-width: 34px; height: 48px; padding: 0 4px; border-radius: 9px; background: var(--bg2); border: 2px solid var(--line);
-  font-style: normal; user-select: none; transition: transform .12s;
+/* Bomb panels: brushed metal with rivets. */
+.bomb .panel {
+  position: relative;
+  background: linear-gradient(180deg, var(--metal-hi), var(--metal) 40%, #1d2333);
+  border: 1px solid #4a5675;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 14px rgba(0,0,0,.35);
 }
-.bomb .mine .wire { min-width: 40px; height: 56px; }
-.bomb .wire b { font-size: 17px; font-weight: 900; line-height: 1; }
-.bomb .mine .wire b { font-size: 20px; }
-.bomb .wire i { font-style: normal; font-size: 9px; color: var(--muted); margin-top: 3px; }
-.bomb .wire.hidden b { color: var(--muted); }
-.bomb .wire.k-b { border-color: var(--wire-b); }
-.bomb .wire.k-b b { color: #9cc4ff; }
-.bomb .wire.k-y { border-color: var(--wire-y); }
-.bomb .wire.k-y b { color: var(--wire-y); }
-.bomb .wire.k-r { border-color: var(--wire-r); background: var(--bad-bg); }
-.bomb .wire.k-r b { color: var(--wire-r); }
-.bomb .wire.info { border-style: dashed; box-shadow: 0 0 0 2px var(--accent-soft); }
-.bomb .mine .wire.info::after { content: '👁'; position: absolute; top: -8px; right: -6px; font-size: 11px; }
-.bomb .wire.cut { opacity: .45; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.06) 6px 12px); }
-.bomb .wire.cut b { text-decoration: line-through; }
-.bomb .wire.pick { cursor: pointer; border-color: var(--accent); }
-.bomb .wire.pick:active { transform: scale(.92); }
-.bomb .wire[data-act=show] { cursor: pointer; outline: 2px solid var(--accent); outline-offset: 2px; }
-.bomb .wire.sel { background: var(--accent); border-color: var(--accent); transform: translateY(-4px); }
-.bomb .wire.sel b, .bomb .wire.sel i { color: var(--on-accent); }
-.bomb .wire.last { animation: bomb-flash 1.2s ease-out 1; }
+.bomb .panel::before, .bomb .panel::after {
+  content: ''; position: absolute; top: 8px; width: 6px; height: 6px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #c9d2e6, #59637d); box-shadow: 0 1px 1px rgba(0,0,0,.5);
+}
+.bomb .panel::before { left: 8px; }
+.bomb .panel::after { right: 8px; }
+.bomb .panel .row { padding: 0 10px; }
+.bomb .mate.turn { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 4px 14px rgba(0,0,0,.35); }
 
-.bomb .mate.turn { border: 2px solid var(--accent); }
+/* Wires */
+.bomb .hand { display: grid; grid-template-columns: repeat(var(--cols, 12), minmax(0, 1fr)); gap: 4px 1px; margin-top: 8px; }
+.bomb .wire { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 36px; justify-self: center; user-select: none; transition: transform .15s; }
+.bomb .wire svg { width: 100%; height: auto; display: block; overflow: visible; }
+.bomb .wire i { font-style: normal; font-size: 9px; color: var(--muted); line-height: 1.2; }
+.bomb .wire .term { fill: #8792ab; stroke: #5d6782; stroke-width: 1; }
+.bomb .wire .screw { fill: #c7cfdf; stroke: #59637d; stroke-width: .8; }
+.bomb .wire .cable { fill: none; stroke-width: 7; stroke-linecap: round; }
+.bomb .wire .mystery { fill: none; stroke: #3b4357; stroke-width: 7; stroke-dasharray: 2 4; stroke-linecap: butt; }
+.bomb .wire .sheen { fill: none; stroke: rgba(255,255,255,.35); stroke-width: 1.6; stroke-linecap: round; transform: translateX(-1.6px); }
+.bomb .wire .copper { stroke: #e3913e; stroke-width: 1.3; stroke-linecap: round; }
+.bomb .wire .plate { fill: #151b29; stroke: #4a5675; stroke-width: 1; }
+.bomb .wire .plate.k-b { stroke: #3d8bff; }
+.bomb .wire .plate.k-y { stroke: #ffd23f; }
+.bomb .wire .plate.k-r { stroke: #ff4d5e; fill: #3a1822; }
+.bomb .wire .plate-t { fill: var(--text); font-size: 11px; font-weight: 800; text-anchor: middle; font-family: inherit; }
+.bomb .wire.unknown .plate-t { fill: var(--muted); }
+.bomb .wire.k-y .plate-t { fill: #ffd23f; font-size: 9px; }
+.bomb .wire.k-r .plate-t { fill: #ff8a95; font-size: 9px; }
+.bomb .wire .token { fill: #ffe9a8; stroke: #8a6400; stroke-width: 1.2; }
+.bomb .wire .token-t { fill: #2a1a00; font-size: 9px; font-weight: 900; text-anchor: middle; font-family: inherit; }
+.bomb .wire.cut .plate-t { opacity: .55; }
+.bomb .wire.pick { cursor: pointer; }
+.bomb .wire.pick .term { fill: #ffcf6b; stroke: #a87000; }
+.bomb .wire.pick:active { transform: scale(.92); }
+.bomb .wire.sel { transform: translateY(-5px); }
+.bomb .wire.sel svg { filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
+.bomb .wire.sel i { color: var(--accent); font-weight: 800; }
+.bomb .wire.last svg { animation: bomb-flash 1.4s ease-out 1; }
+
+/* Characters */
+.bomb .char { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); white-space: nowrap; }
+.bomb .char.used { opacity: .45; text-decoration: line-through; }
+.bomb .mychar { display: flex; gap: 12px; align-items: center; }
+.bomb .big-emoji { font-size: 36px; }
+.bomb .chip.rule { font-size: 13px; border-color: var(--accent); }
+
+/* Turn actions & tools */
 .bomb .act { border: 2px solid var(--accent); }
 .bomb .your-turn { font-weight: 900; font-size: 20px; color: var(--accent-text); }
-.bomb .guesses .chip { min-width: 46px; text-align: center; font-weight: 800; font-size: 18px; }
+.bomb .guesses .chip { min-width: 44px; text-align: center; font-weight: 800; font-size: 17px; }
+.bomb .tools { border-top: 1px dashed var(--line); padding-top: 10px; }
+.bomb .tools .stack > * + * { margin-top: 6px; }
+.bomb .chip.tool { font-weight: 700; }
+.bomb .toolhead { font-size: 18px; }
 
-/* Board of cut counts */
+/* Board of cut counts + equipment */
 .bomb .board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.bomb .cell { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0; border-radius: 10px; background: var(--bg2); }
+.bomb .cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 0 8px; border-radius: 10px; background: var(--bg2); }
 .bomb .cell b { font-size: 15px; }
-.bomb .cell.done { opacity: .4; }
+.bomb .cell.done b, .bomb .cell.done .pips { opacity: .4; }
 .bomb .pips { display: flex; gap: 2px; }
 .bomb .pips i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
-.bomb .pips i.on { background: var(--wire-b); }
+.bomb .pips i.on { background: #3d8bff; }
+.bomb .cell .eq { position: absolute; top: -6px; right: -4px; font-size: 13px; filter: grayscale(1); opacity: .6; }
+.bomb .cell .eq.open { filter: none; opacity: 1; }
+.bomb .cell .eq.used { opacity: .2; }
+.bomb .eqlist { display: flex; flex-direction: column; gap: 6px; }
+.bomb .eqrow { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: var(--bg2); opacity: .75; }
+.bomb .eqrow > span:nth-child(2) { flex: 1; }
+.bomb .eqrow.open { opacity: 1; border: 1px solid var(--good); }
+.bomb .eqrow.used { opacity: .35; }
+.bomb .eqn { font-weight: 900; min-width: 2ch; text-align: center; color: var(--accent-text); }
 
 .bomb .levels .lvl { text-align: left; width: 100%; display: block; padding: 10px 12px; border-radius: 12px; }
 .bomb .levels .lvl.on { background: var(--accent-soft); border: 1px solid var(--accent); color: var(--accent-text); }
+.bomb .levels .lvl.later:not(.on) { opacity: .6; }
+.bomb .levels .lvl .chips { margin-top: 8px; }
 .bomb .log div { padding: 4px 0; font-size: 14px; }
 .bomb .log .fresh { font-weight: 700; }
+.bomb .boom-banner { animation: bomb-shake .5s ease-in-out 1; }
 
-@keyframes bomb-flash { 0% { box-shadow: 0 0 0 6px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
-@media (prefers-reduced-motion: reduce) { .bomb .wire.last { animation: none; } .bomb .wire { transition: none; } }
+@keyframes bomb-flash { 0% { filter: drop-shadow(0 0 8px var(--accent)) brightness(1.6); } 100% { filter: none; } }
+@keyframes bomb-shake { 0%, 100% { transform: none; } 20% { transform: translateX(-8px) rotate(-1deg); } 40% { transform: translateX(7px) rotate(1deg); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+@media (prefers-reduced-motion: reduce) { .bomb .wire.last svg, .bomb .boom-banner { animation: none; } .bomb .wire { transition: none; } }

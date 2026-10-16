@@ -8,7 +8,7 @@ import org.json.JSONObject
 class BombModule : GameModule {
     override val id = "bomb"
     override val title = "Сапери"
-    override val subtitle = "Кооператив за мотивами Bomb Busters: вгадуй номери дротів у руках напарників і не переріж червоний"
+    override val subtitle = "Кооператив за мотивами Bomb Busters: вгадуй дроти напарників і не переріж червоний. Персонажі, спорядження й 12 місій"
     override val minPlayers = Game.MIN_PLAYERS
     override val emoji = "💣"
 
@@ -26,6 +26,8 @@ class BombModule : GameModule {
                 "dual" -> game.dual(pid, msg.optString("to"), msg.optInt("i", -1), msg.optInt("v", -1))
                 "solo" -> game.solo(pid, msg.optInt("v", -1))
                 "reds" -> game.revealReds(pid)
+                "char" -> game.useChar(pid, msg.optString("to").ifEmpty { null }, msg.optInt("i", -1), msg.optInt("j", -1), msg.optInt("v", -1))
+                "equip" -> game.useEquip(pid, msg.optInt("e", -1), msg.optString("to").ifEmpty { null }, msg.optInt("i", -1), msg.optInt("v", -1))
             }
             if (isHost) when (msg.optString("t")) {
                 "level" -> game.setLevel(msg.optInt("v"))
@@ -35,6 +37,8 @@ class BombModule : GameModule {
                 "newGame" -> game.newGame()
             }
         }
+
+        override fun tick(now: Long) = game.tick(now)
 
         override fun state(pid: String?, isHost: Boolean, now: Long): JSONObject {
             for (p in env.room.players.values) game.players[p.id]?.connected = p.connected

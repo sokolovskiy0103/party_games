@@ -38,7 +38,7 @@ class GameTest {
         val (g1, _) = game(1)
         assertFalse(g1.start())
 
-        val (g, ids) = game(4, level = 6)
+        val (g, ids) = game(4, level = 7)
         assertTrue(g.start())
         assertEquals(Game.Phase.SETUP, g.phase)
         val all = g.hands.values.flatten()
@@ -125,7 +125,7 @@ class GameTest {
     }
 
     @Test fun perfectPlayDefusesEveryLevel() {
-        for (level in 1..Game.LEVELS.size) for (seed in 1..20) {
+        for (level in 1..Game.MISSIONS.size) for (seed in 1..20) {
             val (g, _) = game(4, level, seed)
             g.start(); g.showAll()
             var guard = 0
@@ -185,5 +185,132 @@ class GameTest {
         assertTrue(g.nextLevel())
         assertEquals(2, g.level)
         assertEquals(Game.Phase.SETUP, g.phase)
+    }
+
+    // ---------- tools, missions ----------
+
+    /** Starts mission [level] with every character forced to [c] (by re-rolling seeds). */
+    private fun withChar(c: Game.CharType, level: Int = 2): Game {
+        for (seed in 1..200) {
+            val (g, _) = game(4, level, seed)
+            g.start(); g.showAll()
+            if (g.chars[g.turn!!] == c) return g
+        }
+        error("no seed gives $c")
+    }
+
+    /** A teammate wire (owner, index) that does / doesn't match [v]. */
+    private fun Game.find(me: String, v: Int, match: Boolean) = hands.filterKeys { it != me }.firstNotNullOf { (id, h) ->
+        h.indexOfFirst { !it.cut && !it.info && it.kind != Game.Kind.RED && it.matches(v) == match }.takeIf { it >= 0 }?.let { id to it }
+    }
+
+    @Test fun charactersAndEquipmentAreDealtPerMission() {
+        val (t, _) = game(4, level = 1)
+        t.start()
+        assertTrue(t.chars.isEmpty())
+        assertTrue(t.equipment.isEmpty())
+        val (g, ids) = game(4, level = 5)
+        g.start()
+        assertEquals(ids.toSet(), g.chars.keys)
+        assertEquals(4, g.chars.values.toSet().size)
+        assertEquals(4, g.equipment.size)
+        assertEquals(4, g.equipment.map { it.number }.toSet().size)
+    }
+
+    @Test fun detectorSucceedsIfEitherWireMatches() {
+        val g = withChar(Game.CharType.DETECTOR)
+        val me = g.turn!!
+        val v = g.hands[me]!!.first { it.kind == Game.Kind.BLUE }.value
+        val (to, hit) = g.find(me, v, true)
+        val other = g.hands[to]!!.indices.first { it != hit && !g.hands[to]!![it].cut }
+        assertTrue(g.useChar(me, to, other, hit, v))
+        assertTrue(g.hands[to]!![hit].cut)
+        assertEquals(0, g.mistakes)
+        assertFalse(g.useChar(me, to, 0, 1, v)) // once per mission (and not their turn any more)
+        assertTrue(me in g.charUsed)
+    }
+
+    @Test fun shieldAbsorbsAMissAndMechanicWindsBack() {
+        val g = withChar(Game.CharType.SHIELD)
+        val me = g.turn!!
+        assertTrue(g.useChar(me, null, -1, -1, -1))
+        assertEquals(me, g.turn) // free action
+        val v = g.hands[me]!!.first { it.kind == Game.Kind.BLUE }.value
+        val (to, i) = g.find(me, v, false)
+        g.dual(me, to, i, v)
+        assertEquals(0, g.mistakes)
+        assertTrue(g.hands[to]!![i].info)
+
+        val m = withChar(Game.CharType.MECHANIC)
+        val mm = m.turn!!
+        assertFalse(m.useChar(mm, null, -1, -1, -1)) // nothing to wind back yet
+    }
+
+    @Test fun scannerAndAnalystLogPublicAnswers() {
+        val g = withChar(Game.CharType.SCANNER)
+        val me = g.turn!!
+        val to = g.hands.keys.first { it != me }
+        val v = g.hands[to]!!.first { it.kind == Game.Kind.BLUE }.value
+        assertTrue(g.useChar(me, to, -1, -1, v))
+        assertTrue(g.log.last().endsWith("є"))
+        val a = withChar(Game.CharType.ANALYST)
+        val am = a.turn!!
+        val at = a.hands.keys.first { it != am }
+        val w = a.hands[at]!![0]
+        assertTrue(a.useChar(am, at, 0, -1, w.value))
+        assertTrue(a.log.last().contains(if (w.kind == Game.Kind.BLUE) "такий самий" else "більший"))
+    }
+
+    @Test fun equipmentUnlocksAfterTwoCutsAndWorksOnce() {
+        val (g, _) = game(4, level = 5, seed = 3)
+        g.start(); g.showAll()
+        val e = g.equipment.first()
+        assertFalse(g.equipUnlocked(e))
+        while (g.phase == Game.Phase.PLAY && !g.equipUnlocked(e)) g.goodMove()
+        if (g.phase != Game.Phase.PLAY) return
+        val me = g.turn!!
+        val to = g.hands.keys.first { it != me && g.hands[it]!!.any { w -> !w.cut } }
+        val i = g.hands[to]!!.indexOfFirst { !it.cut }
+        val v = g.hands[me]!!.firstOrNull { !it.cut && it.kind == Game.Kind.BLUE }?.value ?: 1
+        assertTrue(g.useEquip(me, 0, to, i, v) || e.type == Game.EquipType.FUSE)
+        if (e.type != Game.EquipType.FUSE) assertFalse(g.useEquip(me, 0, to, i, v))
+    }
+
+    @Test fun extraTurnKeepsThePlayer() {
+        val (g, _) = game(3, level = 2, seed = 5)
+        g.start(); g.showAll()
+        g.equipment.clear(); g.equipment += Game.Equip(Game.EquipType.EXTRA, 1)
+        while (g.phase == Game.Phase.PLAY && !g.equipUnlocked(g.equipment[0])) g.goodMove()
+        if (g.phase != Game.Phase.PLAY) return
+        val me = g.turn!!
+        assertTrue(g.useEquip(me, 0, null, -1, -1))
+        g.goodMove()
+        if (g.phase == Game.Phase.PLAY) assertEquals(me, g.turn)
+        g.goodMove()
+        if (g.phase == Game.Phase.PLAY) assertFalse(me == g.turn)
+    }
+
+    @Test fun turnClockTicksTheDetonator() {
+        val (g, _) = game(4, level = 8)
+        g.start(); g.showAll()
+        val first = g.turn
+        assertTrue(g.tick(1000))
+        assertEquals(61_000L, g.deadline)
+        assertFalse(g.tick(60_000))
+        assertTrue(g.tick(61_000))
+        assertEquals(1, g.mistakes)
+        assertFalse(first == g.turn)
+        assertEquals(0L, g.deadline)
+    }
+
+    @Test fun silentMissionLeavesNoInfoToken() {
+        val (g, _) = game(4, level = 6)
+        g.start(); g.showAll()
+        val me = g.turn!!
+        val v = g.hands[me]!!.first { it.kind == Game.Kind.BLUE }.value
+        val (to, i) = g.find(me, v, false)
+        g.dual(me, to, i, v)
+        assertFalse(g.hands[to]!![i].info)
+        assertEquals(1, g.mistakes)
     }
 }
