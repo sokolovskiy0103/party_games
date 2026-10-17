@@ -271,6 +271,7 @@
   }
 
   PG.register('clocktower', {
+    bg: 'loop',
     // background music per phase (shell.js): the night is the music's; the day is talk
     music: { DAY: 'low', OVER: 'low' },
     render(a) {

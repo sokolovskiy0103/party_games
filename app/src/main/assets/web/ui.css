@@ -70,6 +70,23 @@ body::before {
   content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(120% 55% at 50% -12%, var(--accent-soft), transparent 70%), var(--bg);
 }
+/* A game's picture or loop (shell.js, updateBg) under body::before, which turns into a veil: lighter at the top and
+   bottom, where the art shows, darker behind the content. A game tunes it with --veil (0 = bare art, 1 = solid). */
+#bg { position: fixed; inset: 0; z-index: -2; pointer-events: none; background: var(--bg); }
+#bg > img, #bg > video { width: 100%; height: 100%; object-fit: cover; display: block; animation: bg-in 1.2s ease backwards; }
+@keyframes bg-in { from { opacity: 0; } }
+body.has-bg { --veil: .55; }
+body.has-bg::before {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bg) calc(var(--veil) * 60%), transparent),
+      color-mix(in srgb, var(--bg) calc(var(--veil) * 100%), transparent) 35% 70%,
+      color-mix(in srgb, var(--bg) calc(var(--veil) * 75%), transparent));
+  transition: background .6s;
+}
+/* cards let a little of the art through */
+body.has-bg .card { background-color: color-mix(in srgb, var(--card) 86%, transparent); }
+body.has-bg .card.flat { background-color: color-mix(in srgb, var(--bg2) 86%, transparent); }
 h1, h2, h3 { margin: 0 0 8px; line-height: 1.15; }
 h1 { font-size: 28px; letter-spacing: -.5px; }
 h2 { font-size: 20px; }

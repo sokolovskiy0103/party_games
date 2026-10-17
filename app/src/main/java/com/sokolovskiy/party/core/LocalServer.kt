@@ -95,6 +95,9 @@ class LocalServer(private val context: Context, private val hub: Hub) {
                 "svg" -> "image/svg+xml"
                 "png" -> "image/png"
                 "mp3" -> "audio/mpeg"
+                "webp" -> "image/webp"
+                "webm" -> "video/webm"
+                "mp4" -> "video/mp4"
                 else -> "application/octet-stream"
             }
             return bytes to type

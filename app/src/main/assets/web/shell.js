@@ -290,6 +290,30 @@
     }
   }, 250);
 
+  // ---------- background ----------
+  // A game's `bg` is 'still' (bg-<id>.webp) or 'loop' (bg-<id>.webm / .mp4 over that still as the poster); the TV
+  // takes the landscape cut (bg-<id>-tv.*). The loops are made seamless at build time and kept under the relay's
+  // asset limit. With reduced motion only the still is shown. #bg sits under body::before, which dims it.
+  let bgKey = null;
+  function updateBg() {
+    const id = st && st.game;
+    const kind = id && games[id] && games[id].bg;
+    const key = kind ? id + '/' + kind : '';
+    document.body.dataset.phase = (st && (st.phase || (st.g && st.g.phase))) || '';
+    if (key === bgKey) return;
+    bgKey = key;
+    const el = $('#bg');
+    document.body.classList.toggle('has-bg', !!kind);
+    if (!kind) { el.innerHTML = ''; return; }
+    const f = base + 'static/bg-' + id + (isTv ? '-tv' : '');
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches || kind !== 'loop';
+    el.innerHTML = still ? `<img src="${f}.webp" alt="">`
+      : `<video autoplay muted loop playsinline disablepictureinpicture poster="${f}.webp">
+           <source src="${f}.webm" type="video/webm"><source src="${f}.mp4" type="video/mp4"></video>`;
+    const v = el.querySelector('video');
+    if (v) { v.muted = true; v.play().catch(() => {}); }
+  }
+
   window.PG = { register(id, mod) { games[id] = mod; }, api, ui };
 
   // ---------- views ----------
@@ -507,6 +531,7 @@
     const g = st && st.game ? games[st.game] : null;
     const info = st && st.game ? gameInfo(st.game) : null;
     document.body.dataset.game = document.body.dataset.theme = (st && st.game) || '';
+    updateBg();
     $('#logo').innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Party Games`;
     $('#hostTag').hidden = !(st && st.isHost);
     const joined = !!(pid && st && st.me);

@@ -6,6 +6,9 @@
   --goodc: #6fc3ff;
 }
 body[data-theme=clocktower]:has(.clocktower.is-night) { --bg: #090c18; --card: #131a2c; --bg2: #10162a; --accent: #7a6cff; }
+/* the town in the background goes to sleep too (the TV learns the phase from the shell's data-phase) */
+body[data-theme=clocktower] #bg > * { transition: filter 1.5s; }
+body[data-theme=clocktower][data-phase=NIGHT] #bg > * { filter: brightness(.7) saturate(.6) hue-rotate(-25deg); }
 
 .clocktower .c-evil { color: var(--evil); }
 .clocktower .c-good { color: var(--goodc); }
