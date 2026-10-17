@@ -204,6 +204,8 @@
   }
 
   PG.register('chameleon', {
+    // background music per phase (shell.js): clues are said aloud, then everyone argues
+    music: { CLUES: 'low', VOTE: 'low', RESULT: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -225,7 +227,15 @@
       api = a;
       if (!next) return;
       if (!prev || prev.round !== next.round) { if (next.phase === 'ROLES') revealed = false; }
-      if (prev && prev.phase !== next.phase) a.vibrate(120);
+      if (prev && prev.phase !== next.phase) {
+        a.vibrate(120);
+        if (next.phase === 'VOTE') a.sfx('suspense');
+        if (next.phase === 'RESULT') {
+          const o = next.result && next.result.outcome;
+          a.sfx('reveal');
+          a.sfx(o === 'CAUGHT' ? 'chameleon_caught' : 'lose', 1900);
+        }
+      }
       // vibrate when it becomes my turn
       if (prev && next.phase === 'CLUES' && next.me && next.turn === next.me.id && prev.turn !== next.turn) a.vibrate([80, 60, 80]);
     },

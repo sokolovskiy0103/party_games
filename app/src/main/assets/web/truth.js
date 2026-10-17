@@ -165,6 +165,8 @@
   }
 
   PG.register('truth', {
+    // background music per phase (shell.js): answering is private; the reveal gets talked over
+    music: { REVEAL: 'low', OVER: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -183,7 +185,11 @@
     onState(prev, next, a) {
       api = a;
       if (!next) return;
-      if (prev && prev.phase !== next.phase) a.vibrate(120);
+      if (prev && prev.phase !== next.phase) {
+        a.vibrate(120);
+        if (next.phase === 'REVEAL') a.sfx('truth_detector');
+        if (next.phase === 'OVER') a.sfx('win');
+      }
     },
 
     menu() { return ['newGame']; },

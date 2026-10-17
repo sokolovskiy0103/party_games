@@ -48,6 +48,10 @@ class Hub(private val context: Context) : GameEnv {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val conns = ConcurrentHashMap.newKeySet<Conn>()
 
+    /** The last sound effects the host page sent for the TV, numbered so a TV plays each once (state pushes are conflated). */
+    private val fx = ArrayDeque<JSONObject>()
+    private var fxSeq = 0
+
     val modules: List<GameModule> = listOf(
         InsiderModule(),
         HerdModule(context) { broadcast() },
@@ -113,6 +117,15 @@ class Hub(private val context: Context) : GameEnv {
             return
         }
         if (c.tv) return
+        // A sound effect the host page wants the TV to play: only the TVs need a new state.
+        if (m.optString("t") == "fx" && c.isHost) {
+            synchronized(lock) {
+                fx.addLast(JSONObject().put("i", ++fxSeq).put("n", m.optString("n").take(40)))
+                while (fx.size > 8) fx.removeFirst()
+            }
+            for (t in conns) if (t.tv) sendState(t)
+            return
+        }
         synchronized(lock) {
             when (m.optString("t")) {
                 "join" -> {
@@ -143,6 +156,10 @@ class Hub(private val context: Context) : GameEnv {
                     settings.relayEnabled = on
                     if (on) relay.start() else relay.stop()
                 }
+                "snd" -> {
+                    if (m.has("music")) settings.music = m.optBoolean("music")
+                    if (m.has("sfx")) settings.sfx = m.optBoolean("sfx")
+                }
                 "relayUrl" -> {
                     val url = m.optString("url").trim().trimEnd('/')
                     if (url.startsWith("https://") || url.startsWith("http://")) {
@@ -165,9 +182,18 @@ class Hub(private val context: Context) : GameEnv {
     private fun sendState(c: Conn) {
         val json = try {
             synchronized(lock) {
-                val o = room.stateJson(c.playerId, c.isHost, System.currentTimeMillis(), c.tv)
-                if (c.isHost) o.put("net", netJson()).put("mods", modsJson()).put("tvs", conns.count { it.tv })
-                if (c.tv) inviteUrl()?.let { o.put("join", it).put("qr", qr(it)) }
+                val now = System.currentTimeMillis()
+                val o = room.stateJson(c.playerId, c.isHost, now, c.tv)
+                if (c.isHost || c.tv) o.put("snd", JSONObject().put("music", settings.music).put("sfx", settings.sfx))
+                if (c.isHost) {
+                    o.put("net", netJson()).put("mods", modsJson()).put("tvs", conns.count { it.tv })
+                    // with a board the TV ticks through countdowns itself
+                    o.put("tvBoard", room.session?.board(now) != null)
+                }
+                if (c.tv) {
+                    inviteUrl()?.let { o.put("join", it).put("qr", qr(it)) }
+                    o.put("fx", JSONArray(fx.toList()))
+                }
                 o.toString()
             }
         } catch (t: Throwable) {

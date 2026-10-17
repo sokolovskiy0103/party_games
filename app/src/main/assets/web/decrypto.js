@@ -226,6 +226,8 @@
   }
 
   PG.register('decrypto', {
+    // background music per phase (shell.js): encryptors think in silence; teams talk over the guesses
+    music: { GUESS: 'low', REVEAL: 'low', OVER: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -245,7 +247,12 @@
     onState(prev, next, a) {
       api = a;
       if (!next) return;
-      if (prev && prev.phase !== next.phase) { armed = null; a.vibrate(120); }
+      if (prev && prev.phase !== next.phase) {
+        armed = null; a.vibrate(120);
+        if (next.phase === 'GUESS') a.sfx('decrypto_radio');
+        if (next.phase === 'REVEAL') a.sfx('reveal');
+        if (next.phase === 'OVER') a.sfx('win', 1200);
+      }
       if (prev && next.phase === 'CLUES' && prev.round !== next.round) {
         // fresh clue inputs every round
         for (let i = 0; i < 3; i++) { const el = document.getElementById('clue-' + i); if (el) el.value = ''; }

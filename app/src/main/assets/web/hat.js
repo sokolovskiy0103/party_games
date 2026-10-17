@@ -513,6 +513,8 @@
   }
 
   PG.register('hat', {
+    // background music per phase (shell.js): the explainer has to be heard
+    music: { TURN: 'off', TURN_END: 'low', FINAL: 'low' },
     render(a) {
       api = a;
       if (!g()) return '';
@@ -543,10 +545,17 @@
         if (next.phase !== 'FINAL') showAll = false;
         if (prev) {
           const mineTurn = next.turn && next.me && next.turn.explainer === next.me.id;
-          if (next.phase === 'TURN_END') { a.vibrate([200, 100, 200]); a.buzzer(); }
+          if (next.phase === 'TURN_END') { a.vibrate([200, 100, 200]); a.sfx('time_up'); }
           else if (next.phase === 'READY' && mineTurn) a.vibrate([80, 60, 80]);
           else a.vibrate(60);
+          if (next.phase === 'ROUND_END') a.sfx('reveal');
+          if (next.phase === 'FINAL') a.sfx('win');
         }
+      }
+      // within a turn: a character guessed, or skipped back into the hat
+      if (prev && prev.phase === 'TURN' && next.phase === 'TURN' && prev.turn && next.turn) {
+        if ((next.turn.guessed || []).length > (prev.turn.guessed || []).length) a.sfx('correct');
+        if ((next.turn.skips || 0) > (prev.turn.skips || 0)) a.sfx('hat_skip');
       }
     },
 

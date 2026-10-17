@@ -96,7 +96,13 @@ class Room(val modules: List<GameModule>) {
         }))
         if (tv) {
             o.put("me", JSONObject.NULL)
-            session?.board(now)?.let { o.put("g", it) }
+            session?.let { s ->
+                val board = s.board(now)
+                if (board != null) o.put("g", board)
+                // The TV's music follows the phase, which is public even when the game draws no board.
+                val phase = board ?: try { s.state(null, false, now) } catch (_: Exception) { null }
+                phase?.optString("phase")?.takeIf { it.isNotEmpty() }?.let { o.put("phase", it) }
+            }
             return o
         }
         val me = pid?.let { players[it] }

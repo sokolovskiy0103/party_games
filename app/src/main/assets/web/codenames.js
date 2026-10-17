@@ -273,6 +273,8 @@
   }
 
   PG.register('codenames', {
+    // background music per phase (shell.js): teams discuss their guesses
+    music: { PLAY: 'low', OVER: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -300,7 +302,13 @@
       if (prev && prev.game === next.game && opened(next) > opened(prev)) {
         flip = next.lastOpened;
         setTimeout(() => { flip = null; }, 600);
+        // whose agent it was decides the sound: the guessing team's (or green in Duet), a bystander, the other team's, the assassin
+        const c = (next.cards || [])[next.lastOpened] || {};
+        const mine = c.open === 'GREEN' || c.open === (prev.turn === 0 ? 'BLUE' : 'RED');
+        a.sfx(c.open === 'ASSASSIN' ? 'codenames_assassin' : mine ? 'correct' : 'wrong');
       }
+      const last = ((next.cards || [])[next.lastOpened] || {}).open;
+      if (prev && prev.phase !== 'OVER' && next.phase === 'OVER') a.sfx(last === 'ASSASSIN' ? 'lose' : 'win', 1800);
       const turnChanged = !prev || prev.phase !== next.phase || prev.step !== next.step || prev.turn !== next.turn;
       if (turnChanged) {
         armed = null;

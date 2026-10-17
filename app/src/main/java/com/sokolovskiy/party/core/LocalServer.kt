@@ -94,6 +94,7 @@ class LocalServer(private val context: Context, private val hub: Hub) {
                 "json" -> "application/json; charset=utf-8"
                 "svg" -> "image/svg+xml"
                 "png" -> "image/png"
+                "mp3" -> "audio/mpeg"
                 else -> "application/octet-stream"
             }
             return bytes to type

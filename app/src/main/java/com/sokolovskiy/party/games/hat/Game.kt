@@ -550,6 +550,7 @@ class Game(
                 .put("ms", turnMs)
                 .put("bonus", bonusTurn)
                 .put("deadline", deadline)
+                .put("skips", turnSkips)
                 .put("guessed", JSONArray(turnGuessed.map { cardJson(it) })))
             // Only the explainer sees the card: everyone else would learn what is left in the hat.
             if (me != null && me.id == explainer) current?.let { o.put("card", cardJson(it)) }

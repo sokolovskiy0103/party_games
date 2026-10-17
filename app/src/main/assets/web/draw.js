@@ -372,6 +372,8 @@
   }
 
   PG.register('draw', {
+    // background music per phase (shell.js): drawing and writing are quiet; the results get talked over
+    music: { RESULT: 'low', OVER: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -403,7 +405,14 @@
         pad = { key: null, strokes: [], dirty: false };
         cur = null;
       }
-      if (prev && prev.phase !== next.phase) a.vibrate(120);
+      if (prev && prev.phase !== next.phase) {
+        a.vibrate(120);
+        if (next.phase === 'DRAW') a.sfx('draw_scribble');
+        if (next.phase === 'VOTE') a.sfx('your_turn');
+        if (next.phase === 'OVER') a.sfx('win');
+      }
+      // every drawing's answer is revealed in turn
+      if (next.phase === 'RESULT' && (!prev || prev.phase !== 'RESULT' || prev.index !== next.index)) a.sfx('reveal');
     },
 
     menu() { return ['newGame']; },

@@ -146,6 +146,8 @@ class RelayClient(private val context: Context, private val hub: Hub) {
                             val a = LocalServer.readAsset(context, m.optString("name"))
                             val reply = JSONObject().put("t", "asset").put("id", m.opt("id"))
                             if (a == null) reply.put("status", 404)
+                            // base64 of a music track would overflow the relay's message limit and drop this socket
+                            else if (a.first.size > MAX_ASSET) reply.put("status", 413)
                             else reply.put("status", 200).put("type", a.second)
                                 .put("b64", Base64.getEncoder().encodeToString(a.first))
                             out.send(reply.toString())
@@ -163,5 +165,8 @@ class RelayClient(private val context: Context, private val hub: Hub) {
 
     companion object {
         private const val TAG = "PartyRelay"
+
+        /** Largest asset sent through the relay: its base64 must fit the relay's 256 KB message limit. */
+        private const val MAX_ASSET = 180 * 1024
     }
 }

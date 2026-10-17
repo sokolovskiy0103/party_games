@@ -260,6 +260,8 @@
   }
 
   PG.register('wavelength', {
+    // background music per phase (shell.js): the psychic thinks in silence; the team argues over the dial
+    music: { GUESS: 'low', RESULT: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -282,6 +284,10 @@
         // continue from where the player had already locked, otherwise start in the middle
         myVal = next.myGuess !== undefined ? next.myGuess : 50;
         if (prev && next.phase !== 'LOBBY') a.vibrate(120);
+        if (prev && prev.phase !== next.phase) {
+          if (next.phase === 'GUESS') a.sfx('wavelength_dial');
+          if (next.phase === 'RESULT') { a.sfx('wavelength_reveal'); if (next.series && next.series.over) a.sfx('win', 1500); }
+        }
       }
     },
 

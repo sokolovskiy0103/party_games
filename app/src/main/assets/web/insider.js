@@ -231,6 +231,8 @@
   }
 
   PG.register('insider', {
+    // background music per phase (shell.js): questions to the master need silence; the discussion goes over quiet music
+    music: { QUESTIONS: 'off', DISCUSSION: 'low', RESULT: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -257,7 +259,17 @@
       }
       if (!prev || prev.phase !== next.phase) {
         pickedGuesser = null;
-        if (prev) a.vibrate(120);
+        if (prev) {
+          a.vibrate(120);
+          if (prev.phase === 'QUESTIONS' && next.phase === 'DISCUSSION') a.sfx('correct');
+          if (next.phase === 'VOTE1') a.sfx('suspense');
+          if (next.phase === 'RESULT') {
+            const o = next.result && next.result.outcome;
+            if (o === 'CAUGHT') { a.sfx('reveal'); a.sfx('win', 1900); }
+            else if (o === 'INSIDER_WINS') { a.sfx('reveal'); a.sfx('lose', 1900); }
+            else a.sfx('lose');
+          }
+        }
       }
     },
 

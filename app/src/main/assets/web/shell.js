@@ -83,60 +83,129 @@
     const g = st.game && games[st.game];
     // the TV only gets a game's state when the game draws a board
     if (g && g.onState && (!isTv || g.board)) g.onState(prev && prev.game === st.game ? prev.g : null, st.g, api);
+    if (isTv) tvFx();
+    else if (switched) sfx('whoosh');
+    else if (prev && !st.game && st.players.length > prev.players.length) sfx('join');
+    updateMusic();
     render();
     // a new screen starts at its top, not wherever the game list was scrolled to
     if (switched) window.scrollTo(0, 0);
   }
 
-  // ---------- API for game modules ----------
-  // Browsers only allow audio after a user gesture, so the context is unlocked on the first tap.
+  // ---------- sound ----------
+  // The room has one speaker: the TV when one is watching, otherwise the host's phone; players' phones only vibrate.
+  // Music follows the game and its phase: a game's `music` maps a phase to 'low' (people are talking over it) or
+  // 'off' (someone has to be heard), any other phase plays it normally. Effects come from the games' onState through
+  // api.sfx(): only the host page acts on them (it sees the whole game) and plays them itself or, with a TV on, hands
+  // them to the server, which numbers them into the TVs' state (st.fx).
+  // Browsers only allow audio after a user gesture, so the context is unlocked on the first tap (the app's WebViews
+  // allow it straight away).
   let audioCtx = null;
   function unlockAudio() {
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (!audioCtx && AC) audioCtx = new AC();
-      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      if (!audioCtx && AC) { audioCtx = new AC(); audioCtx.onstatechange = updateMusic; }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().then(updateMusic, () => {});
+      updateMusic();
     } catch (_) {}
   }
   ['pointerdown', 'keydown', 'touchstart'].forEach(e => document.addEventListener(e, unlockAudio, { passive: true }));
-
-  /** Three short descending beeps — "time is up". */
-  function buzzer() {
-    try {
-      unlockAudio();
-      if (!audioCtx) return;
-      const t0 = audioCtx.currentTime + 0.02;
-      [880, 740, 600].forEach((f, i) => {
-        const o = audioCtx.createOscillator(), v = audioCtx.createGain();
-        const s = t0 + i * 0.28;
-        o.type = 'square'; o.frequency.value = f;
-        v.gain.setValueAtTime(0.0001, s);
-        v.gain.exponentialRampToValueAtTime(0.25, s + 0.02);
-        v.gain.exponentialRampToValueAtTime(0.0001, s + 0.22);
-        o.connect(v); v.connect(audioCtx.destination);
-        o.start(s); o.stop(s + 0.24);
-      });
-    } catch (_) {}
-  }
-
-  /** One short blip: the clock ticking on the TV. */
-  function beep(f) {
-    try {
-      if (!audioCtx || audioCtx.state !== 'running') return;
-      const s = audioCtx.currentTime + 0.01;
-      const o = audioCtx.createOscillator(), v = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      v.gain.setValueAtTime(0.0001, s);
-      v.gain.exponentialRampToValueAtTime(0.2, s + 0.005);
-      v.gain.exponentialRampToValueAtTime(0.0001, s + 0.08);
-      o.connect(v); v.connect(audioCtx.destination);
-      o.start(s); o.stop(s + 0.1);
-    } catch (_) {}
-  }
   const soundOn = () => !!(audioCtx && audioCtx.state === 'running');
 
+  const MUSIC_VOL = 0.5, FX_VOL = 0.8, LEVEL = { on: 1, low: 0.3, off: 0 };
+  // { music: { <game|'lobby'>: loop seconds }, sfx: [names] }, written by the sound build script
+  let manifest = null;
+  fetch(base + 'static/sounds.json').then(r => r.json()).then(m => { manifest = m; updateMusic(); }, () => {});
+
+  const bufs = {};
+  function buffer(file) {
+    return bufs[file] || (bufs[file] = fetch(base + 'static/' + file)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+      .then(b => new Promise((ok, no) => audioCtx.decodeAudioData(b, ok, no))));
+  }
+
+  const speaker = () => isTv || (isHostPage && !!st && !st.tvs);
+  const sndOn = k => !(st && st.snd && st.snd[k] === false);
+
+  const lastFx = {};
+  function playFx(name) {
+    if (!soundOn() || !sndOn('sfx') || !manifest || manifest.sfx.indexOf(name) < 0) return;
+    // the ticker and a game may both announce the same moment
+    const t = Date.now();
+    if (t - (lastFx[name] || 0) < 700) return;
+    lastFx[name] = t;
+    buffer('s-' + name + '.mp3').then(b => {
+      const s = audioCtx.createBufferSource(), v = audioCtx.createGain();
+      s.buffer = b; v.gain.value = FX_VOL;
+      s.connect(v); v.connect(audioCtx.destination); s.start();
+    }, () => {});
+  }
+
+  /** A sound effect for the room, optionally after `delay` ms. Called on every page; only the host page acts on it. */
+  function sfx(name, delay) {
+    if (!isHostPage || !st) return;
+    if (delay) { setTimeout(() => sfx(name), delay); return; }
+    if (st.tvs) send({ t: 'fx', n: name }); else playFx(name);
+  }
+
+  // The TV plays every effect it has not seen yet; the first state only sets the mark.
+  let fxSeen = -1;
+  function tvFx() {
+    const list = st.fx || [];
+    if (fxSeen >= 0) list.forEach(f => { if (f.i > fxSeen) playFx(f.n); });
+    fxSeen = list.reduce((m, f) => Math.max(m, f.i), Math.max(fxSeen, 0));
+  }
+
+  let track = null;  // { name, gain, vol, src }
+  function ramp(g, v, sec) {
+    const now = audioCtx.currentTime;
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.linearRampToValueAtTime(v, now + sec);
+  }
+  /** Where the music starts: decoders differ in whether they strip the MP3's leading padding. */
+  function leadIn(b) {
+    const d = b.getChannelData(0), n = Math.min(d.length, b.sampleRate / 4);
+    for (let i = 0; i < n; i++) if (Math.abs(d[i]) > 1e-4) return i / b.sampleRate;
+    return 0;
+  }
+  function updateMusic() {
+    if (!audioCtx) return;
+    let name = null, vol = 0;
+    if (soundOn() && manifest && st && speaker() && sndOn('music')) {
+      const g = st.game && games[st.game];
+      const phase = st.phase || (st.g && st.g.phase) || '';
+      name = manifest.music[st.game || 'lobby'] ? st.game || 'lobby' : null;
+      const lv = LEVEL[(g && g.music && g.music[phase]) || 'on'];
+      vol = MUSIC_VOL * (lv == null ? 1 : lv);
+    }
+    if (track && track.name !== name) {
+      const old = track; track = null;
+      ramp(old.gain, 0, 1.2);
+      setTimeout(() => { try { if (old.src) old.src.stop(); old.gain.disconnect(); } catch (_) {} }, 1400);
+    }
+    if (!name) return;
+    if (track) {
+      if (track.vol !== vol) { track.vol = vol; if (track.src) ramp(track.gain, vol, 1.5); }
+      return;
+    }
+    const t = track = { name, gain: audioCtx.createGain(), vol, src: null };
+    t.gain.gain.value = 0;
+    t.gain.connect(audioCtx.destination);
+    buffer('m-' + name + '.mp3').then(b => {
+      if (track !== t) return;
+      const s = t.src = audioCtx.createBufferSource();
+      const lead = leadIn(b);
+      s.buffer = b; s.loop = true;
+      s.loopStart = lead; s.loopEnd = Math.min(b.duration, lead + manifest.music[name]);
+      s.connect(t.gain);
+      s.start(0, lead);
+      ramp(t.gain, t.vol, 2.5);
+    }, () => {});
+  }
+
   const api = {
-    $, esc, store, buzzer,
+    $, esc, store, sfx,
     get st() { return st; },
     get g() { return st && st.g; },
     get me() { return st && st.me; },
@@ -210,8 +279,15 @@
         if (sec == null && ms > 0 && ms < +el.dataset.low) sec = Math.ceil(ms / 1000);
       }
     });
-    // the TV ticks through the last seconds of a countdown, higher for the final three
-    if (isTv && sec !== tickSec) { tickSec = sec; if (sec != null) beep(sec <= 3 ? 1320 : 990); }
+    // A countdown ticks through its last seconds on the room's speaker: the TV ticks its own board's clock, the host
+    // page ticks for it when the game draws no board. Running out ends with the buzzer.
+    if (sec !== tickSec) {
+      const was = tickSec;
+      tickSec = sec;
+      const n = sec != null ? (sec <= 3 ? 'tick_urgent' : 'tick') : was === 1 ? 'time_up' : null;
+      if (n && isTv && st && st.g) playFx(n);
+      else if (n && isHostPage && st && !(st.tvs && st.tvBoard)) sfx(n);
+    }
   }, 250);
 
   window.PG = { register(id, mod) { games[id] = mod; }, api, ui };
@@ -385,6 +461,12 @@
     }
     if (!host) h += conf('leave', '🚪 Вийти з кімнати', 'Точно? Вийти з кімнати');
     h += `</section>`;
+
+    if (host) {
+      const sw = (k, label) => `<label class="toggle"><input type="checkbox" class="switch" data-pg="snd" data-v="${k}" ${sndOn(k) ? 'checked' : ''}><span>${label}</span></label>`;
+      h += `<section><h3>Звук · ${st.tvs ? '📺 на телевізорі' : 'на цьому телефоні'}</h3>
+        ${sw('music', '🎵 Фонова музика')}${sw('sfx', '🔔 Звукові ефекти')}</section>`;
+    }
 
     if (isHostPage && window.PGApp) {
       let v = '', nv = '';
@@ -617,6 +699,7 @@
       case 'rules': rulesOpen = !rulesOpen; if (rulesOpen) { menuOpen = false; armed = null; } return render();
       case 'menu': return setDrawer(!menuOpen);
       case 'sound': unlockAudio(); return setTimeout(render, 150);
+      case 'snd': return send({ t: 'snd', [el.dataset.v]: !sndOn(el.dataset.v) });
       case 'cast': {
         let ok = false;
         try { ok = PGApp.castScreen(); } catch (_) {}
@@ -678,6 +761,8 @@
       // the phone's second screen allows sound without a tap; a TV browser keeps the "🔊" button
       unlockAudio(); setTimeout(render, 500);
     }
+    // the host app's WebView may play music before the first tap too
+    if (isHostPage) unlockAudio();
     open();
   });
 

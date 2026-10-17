@@ -263,6 +263,8 @@
   }
 
   PG.register('herd', {
+    // background music per phase (shell.js): answers are typed; the results get talked over
+    music: { RESULTS: 'low', GAMEOVER: 'low' },
     render(a) {
       api = a;
       const st = g();
@@ -279,7 +281,13 @@
     onState(prev, next, a) {
       api = a;
       if (!prev || !next || prev.phase !== next.phase || prev.round !== next.round) { selected = null; showCustom = false; }
-      if (prev && next && prev.phase !== next.phase) api.vibrate(100);
+      if (prev && next && prev.phase !== next.phase) {
+        api.vibrate(100);
+        if (next.phase === 'RESULTS') api.sfx('herd_moo');
+        if (next.phase === 'GAMEOVER') api.sfx('win');
+      }
+      // the pink cow changed hands
+      if (prev && next && next.pinkCow && next.pinkCow !== prev.pinkCow) api.sfx('herd_pink', 1500);
     },
 
     menu(a) {

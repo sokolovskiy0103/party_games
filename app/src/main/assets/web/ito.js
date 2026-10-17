@@ -166,6 +166,8 @@
   });
 
   PG.register('ito', {
+    // background music per phase (shell.js): the whole round is a discussion
+    music: { PLAY: 'low', RESULT: 'low', OVER: 'low' },
     render(a) {
       api = a;
       const s = g();
@@ -185,9 +187,14 @@
       api = a;
       if (!next) return;
       if (!prev || prev.round !== next.round) { armed = null; animatedTable = 0; }
-      if (prev && prev.phase !== next.phase) { armed = null; a.vibrate(120); }
+      if (prev && prev.phase !== next.phase) {
+        armed = null; a.vibrate(120);
+        if (next.phase === 'RESULT') a.sfx('win');   // every card down in order
+        if (next.phase === 'OVER') a.sfx('lose', 900); // out of lives
+      }
       // Somebody jumped the queue: everyone feels it.
-      if (prev && prev.round === next.round && next.lives < prev.lives) { a.vibrate([200, 80, 200]); a.buzzer(); }
+      if (prev && prev.round === next.round && next.lives < prev.lives) { a.vibrate([200, 80, 200]); a.sfx('wrong'); }
+      else if (prev && prev.round === next.round && (next.table || []).length > (prev.table || []).length) a.sfx('card');
       // My lowest card changed under the armed button (e.g. it got discarded): disarm.
       const low = c => (c && c.me && c.me.cards && c.me.cards[0] || {}).v;
       if (armed === 'play' && low(prev) !== low(next)) armed = null;
