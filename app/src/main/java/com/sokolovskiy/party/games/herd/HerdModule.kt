@@ -104,6 +104,9 @@ class HerdModule(context: Context, onChange: () -> Unit) : GameModule {
             return game.stateJson(pid, isHost).put("judging", judging)
         }
 
+        // the TV shows the question, who has answered and, once answers open, the groups: nothing private
+        override fun board(now: Long): JSONObject = state(null, false, now)
+
         override fun close() {
             judgeRun++
             judging = false

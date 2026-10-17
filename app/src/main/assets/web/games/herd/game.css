@@ -1,16 +1,16 @@
-/* «Стадо»: purple and pink. */
+/* «Стадо»: a meadow at dusk, with the pink cow as the one bright thing. */
 [data-theme=herd] {
-  --bg: #1b1230;
-  --bg2: #26193f;
-  --card: #2f2150;
-  --line: #45336d;
-  --text: #fff4e6;
-  --muted: #b9a8d6;
-  --accent: #ff4f8a;
-  --on-accent: #fff;
-  --good: #4fe0a0;
-  --bad: #ff4f8a;
-  --pink2: #ffb3cc;
+  --bg: #13241a;
+  --bg2: #1a3123;
+  --card: #223d2c;
+  --line: #3d6148;
+  --text: #f4f1e4;
+  --muted: #a9c3a6;
+  --accent: #ff6fa3;
+  --on-accent: #1a0d14;
+  --good: #7fd98f;
+  --bad: #ff6fa3;
+  --pink2: #ffc2d8;
 }
 
 .herd .question { font-size: 26px; font-weight: 800; line-height: 1.2; }
@@ -37,3 +37,14 @@
 
 .cow { width: 26px; height: 26px; vertical-align: middle; }
 .herd .banner { font-size: 22px; }
+
+/* the TV board is read from across the room */
+body.tv .herd .question { font-size: 48px; }
+body.tv .herd .group .label { font-size: 26px; }
+body.tv .herd .member { font-size: 22px; padding: 8px 14px; }
+body.tv .herd .member .who { font-size: 15px; }
+body.tv .herd .chip { font-size: 20px; }
+body.tv .herd .banner { font-size: 30px; }
+
+/* the herd is counted: the meadow goes to night */
+body[data-theme=herd][data-phase=GAMEOVER] { --bg: #0c1812; --bg2: #132519; --card: #1b3324; }

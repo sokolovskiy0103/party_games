@@ -109,6 +109,16 @@ class GameTest {
         assertEquals("секрет", g.stateJson(ids[0], false).getJSONObject("me").getString("answer"))
     }
 
+    @Test fun tvBoardHidesAnswersWhileAnswering() {
+        val (g, ids) = game("A", "B")
+        g.submitAnswer(ids[0], "секрет")
+        val board = g.stateJson(null, false)
+        assertFalse(board.has("groups"))
+        assertFalse(board.has("me"))
+        assertFalse(board.toString().contains("секрет"))
+        assertEquals(1, board.getInt("answeredCount"))
+    }
+
     @Test fun anonymousHidesNamesButHostCanStillMove() {
         val (g, ids) = game("A", "B", "C")
         g.anonymous = true

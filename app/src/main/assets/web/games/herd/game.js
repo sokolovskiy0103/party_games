@@ -58,7 +58,7 @@
           <span class="count">${gr.members.length} ${win ? cow(false) : ''}</span>
         </div>
         <div>${gr.members.map(m => `
-          <span class="member ${m.mine ? 'me' : ''} ${selected === m.id ? 'sel' : ''}" ${selectable ? `data-pid="${m.id}"` : ''}>
+          <span class="member ${m.mine ? 'me' : ''} ${selected === m.id ? 'sel' : ''}" data-k="${m.id}" ${selectable ? `data-pid="${m.id}"` : ''}>
             <span>${esc(m.text)}</span>${m.name ? `<span class="who">${esc(m.name)}</span>` : (m.mine ? '<span class="who">ти</span>' : '')}
           </span>`).join('')}
         </div>
@@ -230,6 +230,38 @@
     return '';
   }
 
+  // ---------- TV ----------
+  // public only: the question, who has answered, and the groups once answers are open
+  function tvBoard() {
+    const st = g();
+    const head = `<div class="row"><span class="tag ${st.questionLevel}">${LEVELS[st.questionLevel] || ''}</span><span class="muted">Раунд ${st.round}</span></div>`;
+    const question = `<div class="hero question tv-question">${esc(st.question)}</div>`;
+    let main;
+    switch (st.phase) {
+      case 'QUESTION':
+        main = `${head}${question}<h2>Відповіли ${st.answeredCount} з ${st.players.length}</h2>
+          <div class="chips">${st.players.map(p => `<span class="chip ${p.answered ? 'ok' : ''}" data-k="${p.id}">${p.answered ? '✓' : '…'} ${esc(p.name)}</span>`).join('')}</div>`;
+        break;
+      case 'JUDGING':
+        main = `${head}${question}
+          <div class="card flat center">${st.judging ? '<span class="spinner"></span> Групуємо відповіді…' : 'Відповіді розкрито. Сперечайтесь голосно!'}</div>
+          <div class="stack">${groupsHtml()}</div>`;
+        break;
+      case 'RESULTS':
+        main = `${head}${question}<div class="card flat">${resultLine()}</div><div class="stack">${groupsHtml()}</div>`;
+        break;
+      case 'GAMEOVER': {
+        const names = (st.winners || []).map(nameOf).join(', ');
+        main = `${head}<div class="banner good">${cow(false)}Перемога: ${names}</div>
+          ${st.pinkCow ? `<div class="card flat center">${cow(true)} Рожева корова: ${nameOf(st.pinkCow)}</div>` : ''}
+          <div class="stack">${groupsHtml()}</div>`;
+        break;
+      }
+      default: return null;
+    }
+    return `<div class="tv-split"><div class="stack">${main}</div><div class="stack"><h2>Рахунок</h2>${scoreboard()}</div></div>`;
+  }
+
   // ---------- actions ----------
   function sendAnswer() {
     const input = document.querySelector('input[id^="ans-"]');
@@ -263,9 +295,10 @@
   }
 
   PG.register('herd', {
-    // background music per phase (shell.js): answers are typed; the results get talked over
-    music: { RESULTS: 'low', GAMEOVER: 'low' },
+    // background music per phase (shell.js): answers are typed; the groups and results get talked over
+    music: { JUDGING: 'low', RESULTS: 'low', GAMEOVER: 'low' },
     musicLoop: 84,  // seconds of music.mp3 that loop: a whole number of bars
+    bg: 'still',  // games/herd/bg.webp (phone), bg-tv.webp (TV)
     sfx: ['moo', 'pink'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
@@ -278,6 +311,14 @@
       return `<div class="herd stack">${playerView()}</div>`;
     },
 
+    board(a) {
+      api = a;
+      const st = g();
+      if (!st) return null;
+      const out = tvBoard();
+      return out && `<div class="herd">${out}</div>`;  // null before the game: the TV shows the room
+    },
+
     extra(a) { api = a; return a.isHost ? esc(aiPill(a.mod)) : ''; },
 
     onState(prev, next, a) {
@@ -285,11 +326,18 @@
       if (!prev || !next || prev.phase !== next.phase || prev.round !== next.round) { selected = null; showCustom = false; }
       if (prev && next && prev.phase !== next.phase) {
         api.vibrate(100);
+        if (next.phase === 'JUDGING') api.sfx('reveal');
         if (next.phase === 'RESULTS') api.sfx('moo');
-        if (next.phase === 'GAMEOVER') api.sfx('win');
+        if (next.phase === 'GAMEOVER') {
+          api.sfx('win');
+          if (next.me && (next.winners || []).includes(next.me.id)) api.vibrate([200, 100, 200]);
+        }
       }
       // the pink cow changed hands
-      if (prev && next && next.pinkCow && next.pinkCow !== prev.pinkCow) api.sfx('pink', 1500);
+      if (prev && next && next.pinkCow && next.pinkCow !== prev.pinkCow) {
+        api.sfx('pink', 1500);
+        if (next.me && next.me.id === next.pinkCow) api.vibrate([120, 60, 120]);
+      }
     },
 
     menu(a) {
