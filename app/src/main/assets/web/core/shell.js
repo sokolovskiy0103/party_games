@@ -489,7 +489,8 @@
   function tvView() {
     const sound = soundOn() ? '' : '<button class="soft tv-sound" data-pg="sound">🔊 Увімкнути звук</button>';
     const g = st.game && games[st.game];
-    if (g && g.board && st.g) return `<div class="tv-screen">${g.board(api) || ''}</div>${sound}`;
+    const board = g && g.board && st.g ? g.board(api) : null;  // null: the game has no TV board for this moment
+    if (board) return `<div class="tv-screen">${board}</div>${sound}`;
     const qr = st.qr ? `<div class="qr tv-qr">${st.qr}</div>` : '';
     const info = st.game ? gameInfo(st.game) : null;
     const side = info

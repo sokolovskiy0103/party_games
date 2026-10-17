@@ -417,9 +417,7 @@
   function finalView() {
     const s = g();
     const st = s.stats || { cards: [], players: [] };
-    const ts = [...s.teams].sort((a, b) => b.total - a.total);
-    const top = ts.length ? ts[0].total : 0;
-    const winners = ts.filter(t => t.total === top);
+    const { top, winners } = podium(s);
     const mine = me() && winners.some(t => t.idx === me().team);
     let h = `<div class="banner ${mine ? 'good' : 'meh'}"><span class="emoji">🏆</span>
       <h1>${winners.length > 1 ? 'Нічия!' : `Перемогли ${esc(winners[0] ? winners[0].emoji + ' ' + winners[0].name : '')}`}</h1>
@@ -495,6 +493,54 @@
         <div class="muted center">🎩 У шляпі: ${s.poolLeft} з ${s.totalCards}</div></div></div>`;
   }
 
+  // ---------- TV ----------
+  function podium(s) {
+    const ts = [...s.teams].sort((a, b) => b.total - a.total);
+    const top = ts.length ? ts[0].total : 0;
+    return { top, winners: ts.filter(t => t.total === top) };
+  }
+
+  function tvScore(s) {
+    return `<div class="stack"><h2>Рахунок</h2>${scoreTable(s.round > 1)}
+      <div class="muted center">🎩 У шляпі: ${s.poolLeft} з ${s.totalCards}</div></div>`;
+  }
+
+  function tvTurnEnd() {
+    const s = g();
+    const t = turn();
+    const n = t.guessed.length;
+    const main = `${whoLine()}
+      <div class="card flat center stack"><div class="small muted">Хід завершено</div>
+        <h1>+${n}</h1><div class="muted">${plural(n, 'персонаж', 'персонажі', 'персонажів')}</div></div>
+      ${guessedList(t.guessed)}
+      <div class="muted center small">${nameOf(t.explainer)} відмічає, чи вгадали останнього…</div>`;
+    return `<div class="tv-split"><div class="stack">${main}</div>${tvScore(s)}</div>`;
+  }
+
+  function tvRoundEnd() {
+    const s = g();
+    const next = ROUND[s.round + 1];
+    const main = `<div class="banner good"><span class="emoji">🎩</span><h1>Шляпа порожня!</h1>
+        <div>Раунд ${s.round} · ${ROUND[s.round].name} — завершено</div></div>
+      ${roundHighlights(s.round)}
+      ${s.carry ? `<div class="notice">⏱ ${teamTag(s.carry.team)} почне наступний раунд: ${nameOf(s.carry.explainer)} має ще ${secs(s.carry.ms)} с.</div>` : ''}
+      ${next ? `<div class="muted center">Далі: ${next.icon} ${next.name}</div>` : ''}`;
+    return `<div class="tv-split"><div class="stack">${main}</div>${tvScore(s)}</div>`;
+  }
+
+  function tvFinal() {
+    const s = g();
+    const st = s.stats || { cards: [] };
+    const { top, winners } = podium(s);
+    const hardest = st.cards.filter(c => c.ms > 0).slice(0, 3);
+    const main = `<div class="banner good"><span class="emoji">🏆</span>
+        <h1>${winners.length > 1 ? 'Нічия!' : `Перемогли ${esc(winners[0] ? winners[0].emoji + ' ' + winners[0].name : '')}`}</h1>
+        <div>${top} ${plural(top, 'персонаж', 'персонажі', 'персонажів')}</div></div>
+      ${hardest.length ? `<h2>🧱 Найважчі персонажі</h2><div class="chips">${hardest.map(c =>
+        `<span class="chip">${pic(c, 'pic-xs')}${esc(c.name)} · ${dur(c.ms)}</span>`).join('')}</div>` : ''}`;
+    return `<div class="tv-split"><div class="stack">${main}</div><div class="stack"><h2>Рахунок по раундах</h2>${scoreTable(true)}</div></div>`;
+  }
+
   function view() {
     const s = g();
     let out;
@@ -515,8 +561,8 @@
   PG.register('hat', {
     // background music per phase (shell.js): the explainer has to be heard
     music: { TURN: 'off', TURN_END: 'low', FINAL: 'low' },
-    musicLoop: 64,  // seconds of music.mp3 that loop: a whole number of bars (32 bars at 120 BPM)
-    bg: 'still',  // games/hat/bg.webp (phone), bg-tv.webp (TV)
+    musicLoop: 61.935,  // seconds of music.mp3 that loop: a whole number of bars (32 bars at 124 BPM)
+    bg: 'loop',  // games/hat/bg.webm|mp4 (phone), bg-tv.* (TV); bg.webp is the poster
     sfx: ['skip'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
@@ -528,10 +574,16 @@
 
     board(a) {
       api = a;
-      if (!g()) return '';
-      if (g().phase === 'READY' || g().phase === 'TURN') return `<div class="hat">${tvTurn()}</div>`;
-      const out = view();
-      return `<div class="hat stack">${typeof out === 'string' ? out : out.html}</div>`;
+      const s = g();
+      if (!s) return null;
+      let out = null;
+      switch (s.phase) {
+        case 'READY': case 'TURN': out = tvTurn(); break;
+        case 'TURN_END': out = tvTurnEnd(); break;
+        case 'ROUND_END': out = tvRoundEnd(); break;
+        case 'FINAL': out = tvFinal(); break;
+      }
+      return out && `<div class="hat">${out}</div>`;  // null before the game: the TV shows the room
     },
 
     extra(a) {

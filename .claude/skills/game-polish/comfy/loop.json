@@ -159,7 +159,7 @@
    ],
    "filename_prefix": "pgbg/clocktower_pv",
    "format": "auto",
-   "codec": "auto"
+   "format.codec": "h264"
   }
  }
 }
