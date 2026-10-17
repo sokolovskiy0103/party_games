@@ -1,13 +1,12 @@
 // «Стадо» UI. The host (who may or may not play) gets the controls; players answer.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
   const LEVELS = { light: 'Легкий', spicy: 'Пікантний', hot: '18+', custom: 'Своє' };
 
   let api = PG.api;
   let selected = null;     // answer picked for moving during judging
   let showCustom = false;
-  let lastResultKey = '';
 
   const g = () => api.g;
 
@@ -35,7 +34,7 @@
     const ps = [...st.players].sort((a, b) => b.score - a.score);
     const scored = new Set(st.result ? st.result.scored : []);
     return `<div class="card">${ps.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${st.me && st.me.id === p.id ? ' <span class="muted small">(ти)</span>' : ''}</span>
         ${st.pinkCow === p.id ? cow(true) : ''}
@@ -97,8 +96,8 @@
       }
     }
     return `<div class="card stack">
-      <label class="row" style="gap:10px;cursor:pointer">
-        <input type="checkbox" data-act="autoGroup" ${ai.enabled ? 'checked' : ''} style="width:22px;height:22px;accent-color:var(--accent)">
+      <label class="toggle">
+        <input type="checkbox" class="switch" data-act="autoGroup" ${ai.enabled ? 'checked' : ''}>
         <b class="grow">Авторозподіл відповідей</b>
       </label>
       <div class="muted small">${hint}</div>
@@ -137,8 +136,8 @@
   function hostQuestion() {
     const st = g();
     return `<div class="row"><span class="tag ${st.questionLevel}">${LEVELS[st.questionLevel] || ''}</span><span class="muted small">Раунд ${st.round}</span></div>
-      <div class="question">${esc(st.question)}</div>
-      <div class="chips">${st.players.map(p => `<span class="chip ${p.answered ? 'done' : ''}">${p.answered ? '✓' : '…'} ${esc(p.name)}</span>`).join('')}</div>
+      <div class="hero question" data-k="${esc(st.question)}">${esc(st.question)}</div>
+      <div class="chips">${st.players.map(p => `<span class="chip ${p.answered ? 'ok' : ''}">${p.answered ? '✓' : '…'} ${esc(p.name)}</span>`).join('')}</div>
       ${st.me ? `<div class="card flat stack">
         ${st.me.answer ? `<div><span class="muted small">Твоя відповідь:</span> <b>${esc(st.me.answer)}</b></div>` : ''}
         <div class="row">${answerInput(st).replace('<input ', '<input style="flex:1" ')}<button data-act="answer">${st.me.answer ? 'Змінити' : 'OK'}</button></div>
@@ -149,10 +148,10 @@
   function hostJudging() {
     const st = g();
     const src = { ai: '🧠 розподілено автоматично', fuzzy: '🔤 автоматичний збіг', manual: '✋ виправлено вручну' }[st.groupSource] || '';
-    return `<div class="question" style="font-size:20px">${esc(st.question)}</div>
+    return `<div class="hero question" style="font-size:20px">${esc(st.question)}</div>
       ${st.judging
         ? `<div class="card flat center"><span class="spinner"></span> Групую відповіді…</div>`
-        : `<div class="muted small">${src}. ${selected ? '<b style="color:var(--warn)">Тепер тапни групу, куди перенести.</b>' : 'Не згоден? Тапни відповідь, потім групу.'}</div>`}
+        : `<div class="muted small">${src}. ${selected ? '<b class="c-warn">Тепер тапни групу, куди перенести.</b>' : 'Не згоден? Тапни відповідь, потім групу.'}</div>`}
       <div class="stack">${groupsHtml({ selectable: !st.judging })}</div>
       ${selected ? `<button class="ghost" data-act="newGroup" style="width:100%">＋ В окрему групу</button>` : ''}`;
   }
@@ -173,7 +172,7 @@
           <h2>Рахунок</h2>${scoreboard()}${customBox()}`, bar: `<button class="big" data-act="next">Наступне питання</button>` };
       case 'GAMEOVER': {
         const names = (st.winners || []).map(nameOf).join(', ');
-        return { html: `<div class="banner good pop">${cow(false)}Перемога: ${names}</div>
+        return { html: `<div class="banner good">${cow(false)}Перемога: ${names}</div>
           ${st.pinkCow ? `<div class="card flat center">${cow(true)} Рожева корова: ${nameOf(st.pinkCow)}</div>` : ''}
           <h2>Рахунок</h2>${scoreboard()}`, bar: `<button class="big" data-act="newGame">Нова гра</button>` };
       }
@@ -185,18 +184,15 @@
   function myBanner() {
     const st = g();
     const me = st.me.id, r = st.result || {};
-    const key = st.round + st.phase;
-    const pop = key !== lastResultKey ? 'pop' : '';
-    lastResultKey = key;
     if (st.phase === 'GAMEOVER') {
       const won = (st.winners || []).includes(me);
       const names = (st.winners || []).map(nameOf).join(', ');
-      return `<div class="banner ${won ? 'good' : 'meh'} ${pop}">${cow(false)}${won ? 'Ти переміг! Справжній лідер стада' : `Перемога: ${names}`}</div>`;
+      return `<div class="banner ${won ? 'good' : 'meh'}">${cow(false)}${won ? 'Ти переміг! Справжній лідер стада' : `Перемога: ${names}`}</div>`;
     }
-    if (r.pinkTo === me) return `<div class="banner bad ${pop}">${cow(true)}Ти відбився від стада — тримай рожеву корову</div>`;
-    if ((r.scored || []).includes(me)) return `<div class="banner good ${pop}">${cow(false)}+1 корова! Ти в стаді</div>`;
-    if (!st.groups || !st.groups.some(gr => gr.members.some(m => m.mine))) return `<div class="banner meh ${pop}">Ти не відповів цього раунду</div>`;
-    return `<div class="banner meh ${pop}">Цього разу без корови</div>`;
+    if (r.pinkTo === me) return `<div class="banner bad">${cow(true)}Ти відбився від стада — тримай рожеву корову</div>`;
+    if ((r.scored || []).includes(me)) return `<div class="banner good">${cow(false)}+1 корова! Ти в стаді</div>`;
+    if (!st.groups || !st.groups.some(gr => gr.members.some(m => m.mine))) return `<div class="banner meh">Ти не відповів цього раунду</div>`;
+    return `<div class="banner meh">Цього разу без корови</div>`;
   }
 
   function playerView() {
@@ -206,27 +202,27 @@
     switch (st.phase) {
       case 'LOBBY':
         return `<h1>Привіт, ${esc(me.name)}!</h1>
-          <div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки ведучий почне гру</span></div>
+          ${ui.wait('Чекаємо, поки ведучий почне гру', '👑')}
           <h2>У грі ${st.players.length}</h2>
           <div class="chips">${st.players.map(p => `<span class="chip">${esc(p.name)}</span>`).join('')}</div>`;
       case 'QUESTION': {
         const answered = !!me.answer;
         return `<div class="row"><span class="tag ${st.questionLevel}">${LEVELS[st.questionLevel] || ''}</span><span class="muted small">Раунд ${st.round}</span></div>
-          <div class="question">${esc(st.question)}</div>
+          <div class="hero question" data-k="${esc(st.question)}">${esc(st.question)}</div>
           ${answered ? `<div class="card flat"><div class="muted small">Твоя відповідь</div><div style="font-size:20px;font-weight:800">${esc(me.answer)}</div><div class="muted small">Можна змінити, поки ведучий не розкрив відповіді</div></div>` : ''}
           ${answerInput(st)}
           <button class="big" data-act="answer">${answered ? 'Змінити' : 'Відповісти'}</button>
           <div class="muted small center">Відповіли ${st.answeredCount} з ${st.players.length}</div>`;
       }
       case 'JUDGING':
-        return `<div class="question" style="font-size:20px">${esc(st.question)}</div>
+        return `<div class="hero question" style="font-size:20px">${esc(st.question)}</div>
           <div class="card flat center">${st.judging ? '<span class="spinner"></span> Звіряємо відповіді…' : 'Ведучий перевіряє групи. Сперечайтесь голосно!'}</div>
           ${groupsHtml()}`;
       case 'RESULTS':
       case 'GAMEOVER':
         return `${myBanner()}
           <div class="muted">${resultLine()}</div>
-          <div class="question" style="font-size:18px">${esc(st.question)}</div>
+          <div class="hero question" style="font-size:18px">${esc(st.question)}</div>
           ${groupsHtml()}
           <h2>Рахунок</h2>${scoreboard()}
           ${st.phase === 'RESULTS' ? '<div class="muted small center">Чекаємо на наступне питання…</div>' : ''}`;

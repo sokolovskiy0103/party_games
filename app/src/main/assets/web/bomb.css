@@ -1,27 +1,24 @@
 /* «Сапери»: hazard-amber accents, bomb panels with real-looking wires, the fuse, the board and tools. */
-body[data-game=bomb] {
+[data-theme=bomb] {
   --accent: #ffb020;
   --on-accent: #2a1a00;
-  --accent-soft: #3a2a10;
-  --accent-text: #ffd98a;
   --metal: #2a3245;
   --metal-hi: #3b4560;
 }
 
 .bomb .head { align-items: center; }
-.bomb .good { color: var(--good); }
 .bomb h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* Fuse: one segment per allowed mistake, then the blast. */
 .bomb .fuse { display: inline-flex; gap: 4px; align-items: center; }
 .bomb .seg-f { width: 18px; height: 10px; border-radius: 4px; background: var(--bg2); border: 1px solid var(--line); }
-.bomb .seg-f.on { background: var(--bad); border-color: var(--bad); box-shadow: 0 0 8px var(--bad); }
+.bomb .seg-f { transition: background-color var(--mid), box-shadow var(--mid); }
+.bomb .seg-f.on { background: var(--bad); border-color: var(--bad); box-shadow: 0 0 8px var(--bad); animation: fx-tick .4s var(--spring); }
 .bomb .seg-f.boom { width: auto; height: auto; border: 0; background: none; box-shadow: none; font-size: 16px; opacity: .35; }
 .bomb .seg-f.boom.on { opacity: 1; }
 .bomb .clock { align-items: center; }
-.bomb .clock .bar i { display: block; height: 100%; background: var(--accent); transition: width .25s linear; }
-.bomb #bombTimer { font-weight: 800; min-width: 4ch; }
-.bomb #bombTimer.low { color: var(--bad); }
+.bomb .clock .timer { min-width: 4ch; font-size: 13px; }
+.bomb .clock .bar { flex: 1; }
 
 /* Bomb panels: brushed metal with rivets. */
 .bomb .panel {
@@ -64,10 +61,10 @@ body[data-game=bomb] {
 .bomb .wire.pick { cursor: pointer; }
 .bomb .wire.pick .term { fill: #ffcf6b; stroke: #a87000; }
 .bomb .wire.pick:active { transform: scale(.92); }
-.bomb .wire.sel { transform: translateY(-5px); }
+.bomb .wire.sel { transform: translateY(-5px); transition: transform .3s var(--spring); }
 .bomb .wire.sel svg { filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
 .bomb .wire.sel i { color: var(--accent); font-weight: 800; }
-.bomb .wire.last svg { animation: bomb-flash 1.4s ease-out 1; }
+.bomb .wire.last svg { animation: bomb-flash 1.4s ease-out; }
 
 /* Characters */
 .bomb .char { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-text); white-space: nowrap; }
@@ -77,7 +74,6 @@ body[data-game=bomb] {
 .bomb .chip.rule { font-size: 13px; border-color: var(--accent); }
 
 /* Turn actions & tools */
-.bomb .act { border: 2px solid var(--accent); }
 .bomb .your-turn { font-weight: 900; font-size: 20px; color: var(--accent-text); }
 .bomb .guesses .chip { min-width: 44px; text-align: center; font-weight: 800; font-size: 17px; }
 .bomb .tools { border-top: 1px dashed var(--line); padding-top: 10px; }
@@ -108,9 +104,6 @@ body[data-game=bomb] {
 .bomb .levels .lvl.later:not(.on) { opacity: .6; }
 .bomb .levels .lvl .chips { margin-top: 8px; }
 .bomb .log div { padding: 4px 0; font-size: 14px; }
-.bomb .log .fresh { font-weight: 700; }
-.bomb .boom-banner { animation: bomb-shake .5s ease-in-out 1; }
+.bomb .log .fresh { font-weight: 700; animation: fx-in .35s var(--ease) backwards; }
 
 @keyframes bomb-flash { 0% { filter: drop-shadow(0 0 8px var(--accent)) brightness(1.6); } 100% { filter: none; } }
-@keyframes bomb-shake { 0%, 100% { transform: none; } 20% { transform: translateX(-8px) rotate(-1deg); } 40% { transform: translateX(7px) rotate(1deg); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
-@media (prefers-reduced-motion: reduce) { .bomb .wire.last svg, .bomb .boom-banner { animation: none; } .bomb .wire { transition: none; } }

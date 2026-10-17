@@ -12,6 +12,7 @@ sourceSets.main {
         "com/sokolovskiy/party/MainActivity.kt",
         "com/sokolovskiy/party/PartyService.kt",
         "com/sokolovskiy/party/update/**",
+        "com/sokolovskiy/party/tv/**",
         "com/sokolovskiy/party/games/herd/Judge.kt", // replaced by a stub (no ONNX / DownloadManager)
     )
 }

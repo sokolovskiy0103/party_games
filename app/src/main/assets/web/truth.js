@@ -1,7 +1,7 @@
 // «Детектор правди» (Privacy) UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   // This round's answer being picked on this phone (not sent yet).
@@ -36,7 +36,7 @@
     if (!q) return '';
     return `<div class="card stack center">
       ${isReader() ? `<div class="muted small">${q.adult ? '🔥 ' : ''}Прочитай уголос</div>` : ''}
-      <div class="question">${esc(q.q)}</div>
+      <div class="headline">${esc(q.q)}</div>
     </div>`;
   }
 
@@ -44,10 +44,10 @@
     const s = g();
     const list = s.players.slice().sort((a, b) => b.score - a.score);
     return `<div class="card">${list.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${me() && p.id === me().id ? ' <span class="muted">(ти)</span>' : ''}</span>
-        ${withGain && p.gain ? `<span class="gain">+${p.gain}</span>` : ''}
+        ${withGain && p.gain ? `<span class="plus">+${p.gain}</span>` : ''}
         <span class="pts">${p.score}</span>
       </div>`).join('')}</div>`;
   }
@@ -55,10 +55,10 @@
   function progress() {
     const s = g();
     return `<div class="card">${s.players.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}</span>
-        <span class="small ${p.answered ? 'ok' : 'muted'}">${p.answered ? 'відповів(ла) ✓' : 'думає…'}</span>
+        <span class="small ${p.answered ? 'c-good' : 'muted'}">${p.answered ? 'відповів(ла) ✓' : 'думає…'}</span>
       </div>`).join('')}</div>`;
   }
 
@@ -79,7 +79,7 @@
         : `<div class="chips"><span class="chip on">${s.target} очок</span></div>`}
       <div class="muted small">Хтось читає питання, і всі <b>анонімно</b> відповідають «так» чи «ні». Заодно вгадай, скільки
         всього буде «так». Вгадав(ла) — +1. Хто чесно відповів, не дізнається ніхто.</div></div>`;
-    if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне</span></div>`;
+    if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне', '👑');
     h += `<h2>Гравці · ${n}</h2><div class="card chips">${s.players.map(p => `<span class="chip"><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}</span>`).join('') || '<span class="muted">Поки нікого</span>'}</div>`;
     if (api.isHost) {
       h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>Почати</button>`;
@@ -96,13 +96,13 @@
     return `<div class="card stack center">
       <b>Твоя відповідь</b>
       <div class="muted small">Її не побачить ніхто — лише загальну кількість «так».</div>
-      <div class="row two">
-        <button class="big choice ${draft.yes === true ? 'picked' : ''}" data-act="yes" data-v="1">Так</button>
-        <button class="big choice ${draft.yes === false ? 'picked' : ''}" data-act="yes" data-v="0">Ні</button>
+      <div class="grid2">
+        <button class="pick center choice ${draft.yes === true ? 'on' : ''}" data-act="yes" data-v="1">Так</button>
+        <button class="pick center choice ${draft.yes === false ? 'on' : ''}" data-act="yes" data-v="0">Ні</button>
       </div>
       <b>Скільки всього буде «так»?</b>
       <div class="muted small">Рахуючи й себе: від 0 до ${s.maxGuess}.</div>
-      <div class="nums">${nums.map(k => `<button class="num ${draft.guess === k ? 'picked' : ''}" data-act="guess" data-v="${k}">${k}</button>`).join('')}</div>
+      <div class="nums">${nums.map(k => `<button class="pick sq ${draft.guess === k ? 'on' : ''}" data-act="guess" data-v="${k}">${k}</button>`).join('')}</div>
       <button class="big" data-act="send" ${ready ? '' : 'disabled'}>Надіслати</button>
     </div>`;
   }
@@ -132,7 +132,7 @@
     const gain = mine ? mine.gain : 0;
     // One figure per answer, «так» first: shows the split without saying who.
     const people = Array.from({ length: s.answered }, (_, i) => person(i < s.yes)).join('');
-    let h = `<div class="banner ${gain ? 'good' : 'meh'} pop">
+    let h = `<div class="banner ${gain ? 'good' : 'meh'}">
       <div class="people">${people}</div>
       <div class="tally"><span class="yes">${s.yes} так</span> · <span class="no">${s.answered - s.yes} ні</span></div>
       ${gain ? `<div class="small">Вгадав(ла)! +${gain}</div>` : ''}</div>`;
@@ -155,7 +155,7 @@
     const top = list.length ? list[0].score : 0;
     const winners = list.filter(p => p.score === top).map(p => esc(p.name)).join(', ');
     const sharp = list.slice().sort((a, b) => b.exact - a.exact)[0];
-    let h = `<div class="banner good pop"><h1>🏆 ${winners}</h1><div>${top} ${pts(top)}</div></div>`;
+    let h = `<div class="banner good"><span class="emoji">🏆</span><h1>${winners}</h1><div>${top} ${pts(top)}</div></div>`;
     h += scoreboard(false);
     if (sharp && sharp.exact > 0) h += `<div class="card flat center small">🎯 Найточніший детектор: <b>${esc(sharp.name)}</b> — ${sharp.exact} точних</div>`;
     h += api.isHost

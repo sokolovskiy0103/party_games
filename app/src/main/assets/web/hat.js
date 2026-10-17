@@ -1,7 +1,7 @@
 // «Шляпа» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc, store } = PG.api;
+  const { esc, store, ui } = PG.api;
   let api = PG.api;
 
   const ROUND = {
@@ -12,7 +12,6 @@
   const TEAM_COLORS = ['#ff8a3d', '#4cc3ff', '#b98cff', '#5fdc8f', '#ff5d8f', '#ffd34d'];
 
   let showAll = false;     // full character list on the final screen
-  let timerTotal = 0;
 
   // ---------- helpers ----------
   const g = () => api.g;
@@ -28,10 +27,6 @@
     return t ? `<span class="team-tag" style="--tc:${teamColor(idx)}">${t.emoji} ${esc(t.name)}</span>` : '';
   };
   const secs = ms => Math.round(ms / 1000);
-  function fmt(ms) {
-    const s = Math.max(0, Math.ceil(ms / 1000));
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  }
   function dur(ms) {
     const s = Math.round(ms / 1000);
     return s < 60 ? `${s} с` : `${Math.floor(s / 60)} хв ${s % 60} с`;
@@ -157,35 +152,22 @@
   function picButton(c) {
     if (!g().images) return '';
     const list = candList(c.name);
-    if (!list) return `<span class="spinner small"></span>`;
+    if (!list) return `<span class="spinner sm"></span>`;
     if (!list.length) return `<span class="muted small">без фото</span>`;
     return `<button class="mini ghost" data-act="nextPic" data-id="${c.id}" title="Інша картинка">🔄</button>`;
   }
 
   // ---------- timer ----------
-  function remainingMs() {
-    const t = turn();
-    if (!t || !t.deadline) return t ? t.ms : 0;
-    return Math.max(0, t.deadline - api.now());
-  }
   function timerHtml() {
-    timerTotal = turn() ? turn().ms : 0;
-    const ms = remainingMs();
-    return `<div class="timer ${ms < 10000 ? 'low' : ''}" id="hatTimer">${fmt(ms)}</div>
-      <div class="bar"><i id="hatBar" style="width:${timerTotal ? ms / timerTotal * 100 : 0}%"></i></div>`;
+    const t = turn();
+    const o = { deadline: t.deadline, ms: t.ms, total: t.ms, low: 10000 };
+    return ui.timer(o) + ui.timerBar(o);
   }
-  setInterval(() => {
-    const t = document.getElementById('hatTimer'); if (!t || !g() || g().phase !== 'TURN') return;
-    const ms = remainingMs();
-    t.textContent = fmt(ms);
-    t.classList.toggle('low', ms < 10000);
-    const b = document.getElementById('hatBar'); if (b && timerTotal) b.style.width = (ms / timerTotal * 100) + '%';
-  }, 200);
 
   // ---------- pieces ----------
   function roundBanner(r) {
     const R = ROUND[r]; if (!R) return '';
-    return `<div class="round-banner"><div class="ri">${R.icon}</div>
+    return `<div class="hero round" data-k="round${r}"><div class="ri">${R.icon}</div>
       <div><div class="small muted">Раунд ${r} з ${g().rounds}</div><b>${R.name}</b><div class="small">${R.rule}</div></div></div>`;
   }
 
@@ -194,7 +176,7 @@
     const ts = [...s.teams].sort((a, b) => b.total - a.total);
     const upto = s.phase === 'FINAL' ? (s.stats ? s.stats.roundsPlayed : s.round) : s.round;
     return `<div class="card">${ts.map(t => `
-      <div class="score">
+      <div class="li">
         <span class="name">${teamTag(t.idx)} <span class="muted small">${t.members.map(nameOf).join(', ')}</span></span>
         ${showRounds ? t.score.slice(0, upto).map((n, i) => `<span class="rs" title="Раунд ${i + 1}">${n}</span>`).join('') : ''}
         <span class="pts">${t.total}</span>
@@ -253,11 +235,11 @@
           <button class="${s.skips ? '' : 'on'}" data-act="skips" data-v="0">🚫 Не можна</button>
         </div>
         <div class="muted small">${s.skips ? 'Пропущений персонаж повертається в шляпу.' : 'Пояснюй, поки не вгадають, — кнопки «Пропустити» не буде.'}</div>
-        <label class="toggle"><input type="checkbox" data-act="images" ${s.images ? 'checked' : ''}>
+        <label class="toggle"><input type="checkbox" class="switch" data-act="images" ${s.images ? 'checked' : ''}>
           <span>Картинки персонажів <span class="muted small">(Вікіпедія й Вікідані; потрібен інтернет на телефонах гравців)</span></span></label>
       </div>`;
     } else {
-      h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Хост налаштовує гру</span></div>`;
+      h += ui.wait('Хост налаштовує гру', '👑');
     }
     h += rulesCard();
     h += `<h2>Гравці · ${n}</h2><div class="card"><div class="chips">${s.players.map(p =>
@@ -285,7 +267,7 @@
       }
       if (s.err) h += `<div class="notice">${esc(s.err)}</div>`;
       if (mine.length) {
-        h += `<div class="card mine">${mine.map(c => `<div class="mine-row">${pic(c, 'pic-sm')}<span class="grow">${esc(c.name)}</span>
+        h += `<div class="card mine">${mine.map(c => `<div class="li mine-row">${pic(c, 'pic-sm')}<span class="grow">${esc(c.name)}</span>
           ${picButton(c)}<button class="mini ghost" data-act="remove" data-id="${c.id}">✕</button></div>`).join('')}</div>`;
       }
       if (left > 0) h += `<button class="soft" data-act="autofill">🎲 Доповнити випадковими (${left})</button>`;
@@ -328,10 +310,10 @@
 
   function whoLine() {
     const t = turn();
-    return `<div class="who" style="--tc:${teamColor(t.team)}">
+    return `<div class="card hl tint who" style="--tc:${teamColor(t.team)}">
       <div>${teamTag(t.team)}</div>
       <div class="explainer">${isExplainer() ? 'Пояснюєш ти' : `Пояснює ${nameOf(t.explainer)}`}</div>
-      ${t.bonus ? `<div class="small warn">⏱ бонусний час з минулого раунду: ${secs(t.ms)} с</div>` : ''}
+      ${t.bonus ? `<div class="small c-warn">⏱ бонусний час з минулого раунду: ${secs(t.ms)} с</div>` : ''}
     </div>`;
   }
 
@@ -363,7 +345,7 @@
   }
 
   function cardView(c, big) {
-    return `<div class="hat-card ${big ? 'big' : ''} pop">${pic(c)}<div class="cname">${esc(c.name)}</div></div>`;
+    return `<div class="hero hat-card ${big ? 'big' : ''} fx-pop" data-k="${esc(c.name)}">${pic(c)}<div class="cname">${esc(c.name)}</div></div>`;
   }
 
   function turnView() {
@@ -377,7 +359,7 @@
       h += `<div class="row small muted"><span class="grow">Вгадано: <b>${t.guessed.length}</b> · у шляпі ${s.poolLeft}</span>
         ${t.guessed.length ? `<button class="mini ghost" data-act="undo">↶ Скасувати</button>` : ''}</div>`;
       bar = (s.skips ? `<button class="soft skip" data-act="skip">Пропустити</button>` : '') +
-        `<button class="got" data-act="got">✓ Вгадали</button>`;
+        `<button class="good got" data-act="got">✓ Вгадали</button>`;
     } else {
       h += `<div class="center explainer">${nameOf(t.explainer)} пояснює</div>`;
       h += myRoleLine();
@@ -393,12 +375,12 @@
   function turnEndView() {
     const s = g();
     const t = turn();
-    let h = `<div class="banner meh pop"><div style="font-size:40px">⏰</div><h1>Час вийшов!</h1></div>`;
+    let h = `<div class="banner meh"><span class="emoji">⏰</span><h1>Час вийшов!</h1></div>`;
     const ex = s.players.find(p => p.id === t.explainer);
     if (isExplainer() || (api.isHost && !(ex && ex.connected))) {
       h += s.card ? cardView(s.card, false) : '';
       h += `<h2 class="center">Останнього встигли вгадати?</h2>
-        <div class="grid2"><button class="no" data-act="last" data-v="0">Ні</button><button class="yes" data-act="last" data-v="1">Так ✓</button></div>`;
+        <div class="grid2"><button class="bad" data-act="last" data-v="0">Ні</button><button class="good" data-act="last" data-v="1">Так ✓</button></div>`;
     } else {
       h += `<div class="card flat center muted">${nameOf(t.explainer)} відмічає, чи вгадали останнього…</div>`;
     }
@@ -419,7 +401,7 @@
 
   function roundEndView() {
     const s = g();
-    let h = `<div class="banner good pop"><div style="font-size:40px">🎩</div><h1>Шляпа порожня!</h1>
+    let h = `<div class="banner good"><span class="emoji">🎩</span><h1>Шляпа порожня!</h1>
       <div>Раунд ${s.round} · ${ROUND[s.round].name} — завершено</div></div>`;
     h += `<h2>Рахунок</h2>${scoreTable(s.round > 1)}`;
     if (s.carry) {
@@ -439,7 +421,7 @@
     const top = ts.length ? ts[0].total : 0;
     const winners = ts.filter(t => t.total === top);
     const mine = me() && winners.some(t => t.idx === me().team);
-    let h = `<div class="banner ${mine ? 'good' : 'meh'} pop"><div style="font-size:44px">🏆</div>
+    let h = `<div class="banner ${mine ? 'good' : 'meh'}"><span class="emoji">🏆</span>
       <h1>${winners.length > 1 ? 'Нічия!' : `Перемогли ${esc(winners[0] ? winners[0].emoji + ' ' + winners[0].name : '')}`}</h1>
       <div>${top} ${plural(top, 'персонаж', 'персонажі', 'персонажів')}</div></div>`;
     h += `<h2>Рахунок по раундах</h2>${scoreTable(true)}`;
@@ -448,7 +430,7 @@
     if (shown.length) {
       const hardest = shown.slice(0, 3);
       const easiest = [...shown].sort((a, b) => a.ms - b.ms).slice(0, 3);
-      const row = c => `<div class="stat-card">${pic(c, 'pic-sm')}
+      const row = c => `<div class="li">${pic(c, 'pic-sm')}
         <div class="grow"><b>${esc(c.name)}</b><div class="muted small">${dur(c.ms)} на екрані${c.skips ? ` · пропусків ${c.skips}` : ''}${c.author ? ` · від ${nameOf(c.author)}` : ''}</div></div></div>`;
       h += `<h2>🧱 Найважчі персонажі</h2><div class="card">${hardest.map(row).join('')}</div>`;
       h += `<h2>🪶 Найлегші</h2><div class="card">${easiest.map(row).join('')}</div>`;
@@ -470,14 +452,14 @@
     if (sk && sk.skips >= 2) noms.push(['🙈', 'Король пропусків', sk.id, `${sk.skips} ${plural(sk.skips, 'пропуск', 'пропуски', 'пропусків')}`]);
     if (noms.length) {
       h += `<h2>Номінації</h2><div class="card">${noms.map(([e, t, id, d]) =>
-        `<div class="stat-card"><span class="nom">${e}</span><div class="grow"><div class="muted small">${t}</div><b>${nameOf(id)}</b> <span class="muted small">· ${d}</span></div></div>`).join('')}</div>`;
+        `<div class="li"><span class="nom">${e}</span><div class="grow"><div class="muted small">${t}</div><b>${nameOf(id)}</b> <span class="muted small">· ${d}</span></div></div>`).join('')}</div>`;
     }
 
     // individual
     h += `<h2>Особиста статистика</h2><div class="card">${ps.sort((a, b) => b.explained - a.explained).map(p => {
       const avg = p.explained ? (p.ms / p.explained / 1000).toFixed(1) + ' с' : '—';
       const pl = s.players.find(x => x.id === p.id);
-      return `<div class="pstat ${me() && me().id === p.id ? 'mine' : ''}">
+      return `<div class="li block ${me() && me().id === p.id ? 'me' : ''}">
         <div class="row"><b class="grow">${nameOf(p.id)}</b>${pl && pl.team != null ? teamTag(pl.team) : ''}</div>
         <div class="kv"><span><b>${p.explained}</b> пояснив(ла)</span><span><b>${avg}</b> на персонажа</span>
           <span><b>${p.bestTurn}</b> за найкращий хід</span><span><b>${p.skips}</b> ${plural(p.skips, 'пропуск', 'пропуски', 'пропусків')}</span>
@@ -487,7 +469,7 @@
 
     if (st.cards.length) {
       h += showAll
-        ? `<h2>Усі персонажі</h2><div class="card">${st.cards.map(c => `<div class="all-row"><span class="grow">${esc(c.name)}</span>
+        ? `<h2>Усі персонажі</h2><div class="card">${st.cards.map(c => `<div class="li"><span class="grow">${esc(c.name)}</span>
             <span class="muted small">${c.rounds.map(ms => secs(ms) + 'с').join(' · ')}</span><b>${dur(c.ms)}</b></div>`).join('')}</div>`
         : `<button class="ghost" data-act="showAll">Усі персонажі за складністю</button>`;
     }
@@ -495,13 +477,28 @@
     return h;
   }
 
-  PG.register('hat', {
-    render(a) {
-      api = a;
-      const s = g();
-      if (!s) return '';
-      let out;
-      switch (s.phase) {
+  /**
+   * TV: the turn in big — who explains, the clock, what is guessed — next to the score. The other phases are the
+   * players' screens as a viewer who is nobody sees them.
+   */
+  function tvTurn() {
+    const s = g();
+    const t = turn();
+    let main = roundBanner(s.round) + whoLine();
+    if (s.phase === 'TURN') {
+      main += timerHtml() + `<div class="center"><b>Вгадано: ${t.guessed.length}</b></div>${guessedList(t.guessed)}`;
+    } else {
+      main += `<div class="card flat center muted">${nameOf(t.explainer)} готується · ${secs(t.ms)} с на хід</div>` + lastTurnCard();
+    }
+    return `<div class="tv-split"><div class="stack">${main}</div>
+      <div class="stack"><h2>Рахунок</h2>${scoreTable(s.round > 1)}
+        <div class="muted center">🎩 У шляпі: ${s.poolLeft} з ${s.totalCards}</div></div></div>`;
+  }
+
+  function view() {
+    const s = g();
+    let out;
+    switch (s.phase) {
         case 'LOBBY': out = lobbyView(); break;
         case 'COLLECT': out = collectView(); break;
         case 'TEAMS': out = teamsView(); break;
@@ -511,9 +508,25 @@
         case 'ROUND_END': out = roundEndView(); break;
         case 'FINAL': out = finalView(); break;
         default: out = '';
-      }
+    }
+    return out;
+  }
+
+  PG.register('hat', {
+    render(a) {
+      api = a;
+      if (!g()) return '';
+      const out = view();
       if (typeof out === 'string') return `<div class="hat stack">${out}</div>`;
       return { html: `<div class="hat stack">${out.html}</div>`, bar: out.bar ? `<div class="hat-bar">${out.bar}</div>` : '' };
+    },
+
+    board(a) {
+      api = a;
+      if (!g()) return '';
+      if (g().phase === 'READY' || g().phase === 'TURN') return `<div class="hat">${tvTurn()}</div>`;
+      const out = view();
+      return `<div class="hat stack">${typeof out === 'string' ? out : out.html}</div>`;
     },
 
     extra(a) {

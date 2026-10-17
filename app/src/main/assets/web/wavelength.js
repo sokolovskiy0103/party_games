@@ -1,7 +1,7 @@
 // «Хвиля» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   let myVal = 50;        // marker position while the player is still choosing
@@ -30,13 +30,13 @@
     let inner = '';
     if (opts.target != null) inner += zonesHtml(opts.target);
     (opts.marks || []).forEach((m, i) => {
-      inner += `<div class="wl-pin ${m.mine ? 'mine' : ''}" style="left:${m.v}%;--i:${i}"><span>${esc(m.label)}</span></div>`;
+      inner += `<div class="pin ${m.mine ? 'mine' : ''}" style="left:${m.v}%;--i:${i}"><span>${esc(m.label)}</span></div>`;
     });
-    if (opts.live) inner += `<div class="wl-pin mine live" id="wlPin" style="left:${myVal}%"><span>▲</span></div>`;
+    if (opts.live) inner += `<div class="pin mine live" id="wlPin" style="left:${myVal}%"><span>▲</span></div>`;
     if (opts.target != null) inner += `<div class="wl-target" style="left:${opts.target}%"></div>`;
     return `<div class="wl-scale">
       <div class="wl-ends"><span>${esc(s.left)}</span><span>${esc(s.right)}</span></div>
-      <div class="wl-track ${opts.live ? 'live' : ''} ${opts.fresh ? 'fresh' : ''}" id="wlTrack">${inner}</div>
+      <div class="wl-track spectrum tall ${opts.live ? 'live' : ''} ${opts.fresh ? 'fresh' : ''}" id="wlTrack">${inner}</div>
     </div>`;
   }
 
@@ -66,7 +66,7 @@
     const pts = (s.result && s.result.points) || {};
     const ps = [...s.players].sort((a, b) => b.score - a.score);
     return `<div class="card">${ps.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${me() && me().id === p.id ? ' <span class="muted small">(ти)</span>' : ''}
           ${s.psychic === p.id && s.phase !== 'LOBBY' ? ' <span class="small c-psy">екстрасенс</span>' : ''}</span>
@@ -98,7 +98,7 @@
       : se.over ? `Серію завершено: ${se.played} раундів — нова почнеться з нуля`
       : `Зіграно ${se.played}, лишилось ${se.left} · яблучко дає бонусний раунд`;
     return `<div class="card wl-team">
-      <div class="score"><span class="name">Спільний рахунок</span><span class="pts">${se.active ? se.score : 0}</span></div>
+      <div class="li"><span class="name">Спільний рахунок</span><span class="pts">${se.active ? se.score : 0}</span></div>
       <div class="muted small">${status}</div>
       <div class="wl-names">${g().players.map(p => `<span><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}${me() && me().id === p.id ? ' <span class="muted small">(ти)</span>' : ''}</span>`).join('')}</div>
     </div>`;
@@ -125,7 +125,7 @@
       <div class="muted small">Екстрасенс бачить, де на шкалі між двома поняттями прихована ціль, і дає підказку. Решта ставить маркер там, де, на їхню думку, ціль. Що ближче — то більше очок.</div>
       <div class="muted small">Удвох гра сама вмикає кооперативний режим.</div>
     </div>`;
-    if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне раунд</span></div>`;
+    if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне раунд', '👑');
     h += `<h2>Гравці · ${n}</h2>${s.coop ? teamCard() : scoreboard()}`;
     if (api.isHost) {
       const cont = s.coop ? inCoop() && series().played > 0 && !series().over : s.round;
@@ -151,8 +151,9 @@
           <button class="grow" data-act="clue">Дати підказку</button>
         </div>`;
     } else {
-      h += `<div class="card center stack"><span class="spinner"></span>
-        <div><b>${nameOf(s.psychic)}</b> придумує підказку…</div>
+      const psy = (s.players.find(p => p.id === s.psychic) || {}).name;
+      h += `<div class="card center stack"><div class="wait"><span class="who"><span class="avatar">${esc(([...(psy || '?')][0]).toUpperCase())}</span>${ui.typing()}</span></div>
+        <div><b>${nameOf(s.psychic)}</b> придумує підказку</div>
         ${scale()}</div>`;
       if (!inRound && me()) h += `<div class="card flat center muted">Ти приєднався під час раунду — зіграєш у наступному.</div>`;
     }
@@ -163,7 +164,7 @@
     const s = g();
     const iGuess = me() && me().inRound && !isPsychic();
     let h = `<div class="card center"><div class="muted small">Підказка від ${nameOf(s.psychic)}</div>
-      <div class="clue">${esc(s.clue || '')}</div></div>`;
+      <div class="headline xl">${esc(s.clue || '')}</div></div>`;
     if (isPsychic()) {
       h += `<div class="center"><span class="tag">ти екстрасенс</span></div>${scale({ target: s.target })}
         <div class="muted center small">Чекаємо, поки інші поставлять маркери.</div>`;
@@ -191,13 +192,13 @@
     if (fresh) setTimeout(() => { animatedRound = s.round; }, 0);
     const verdict = !guesser ? 'Маркер не поставили' : pts >= 4 ? 'Точно в ціль! 🎯' : pts === 3 ? 'Дуже близько!' : pts === 2 ? 'Непогано' : pts === 1 ? 'Ледь зачепили' : 'Мимо цілі';
     const detail = guesser ? `Відхилення ${Math.abs(r.guesses[guesser] - r.target)}% — +${pts} до спільного рахунку` : 'Раунд закрили раніше, тож без очок';
-    let h = `<div class="banner ${pts >= 3 ? 'good' : 'meh'} pop"><h1>${verdict}</h1>
+    let h = `<div class="banner ${pts >= 3 ? 'good' : 'meh'}"><h1>${verdict}</h1>
         <div>${detail}</div>
         ${se.bonus ? '<div><b>Яблучко — бонусний раунд!</b></div>' : ''}
         <div class="muted small">Підказка від ${nameOf(s.psychic)}: «${esc(s.clue || '')}»</div></div>
       ${scale({ target: r.target, marks, fresh })}`;
     if (se.over) {
-      h += `<div class="banner good pop"><div class="muted small">Серію завершено · ${se.played} раундів</div>
+      h += `<div class="banner good"><div class="muted small">Серію завершено · ${se.played} раундів</div>
         <h1>${se.score} очок</h1><div><b>${rating(se.score, se.played)}</b></div></div>`;
     } else {
       h += teamCard();
@@ -217,7 +218,7 @@
     const r = s.result || { guesses: {}, points: {}, target: 50 };
     const marks = Object.keys(r.guesses).map(id => ({ v: r.guesses[id], label: (((s.players.find(p => p.id === id) || {}).name) || '?').slice(0, 1).toUpperCase(), mine: me() && me().id === id }));
     const rows = Object.keys(r.guesses).sort((a, b) => Math.abs(r.guesses[a] - r.target) - Math.abs(r.guesses[b] - r.target)).map(id =>
-      `<div class="score"><span class="name">${nameOf(id)}</span>
+      `<div class="li"><span class="name">${nameOf(id)}</span>
         <span class="muted small">${Math.abs(r.guesses[id] - r.target)}%</span>
         <span class="plus">+${r.points[id] || 0}</span></div>`).join('');
     const fresh = animatedRound !== s.round;
@@ -245,11 +246,11 @@
       detail = closest ? 'Найкращий результат раунду' : 'Ніхто не встиг поставити маркер';
     }
     const bestLine = closest && closest !== myId ? `<div class="muted small">Найближче — ${nameOf(closest)}, відхилення ${dist(closest)}%</div>` : '';
-    let h = `<div class="banner ${pts >= 3 ? 'good' : 'meh'} pop"><h1>${verdict}</h1>
+    let h = `<div class="banner ${pts >= 3 ? 'good' : 'meh'}"><h1>${verdict}</h1>
         <div>${detail}</div>${bestLine}<div class="muted small">Підказка: «${esc(s.clue || '')}»</div></div>
       ${scale({ target: r.target, marks, fresh })}
       <div class="card">${rows || '<div class="muted">Ніхто не поставив маркер</div>'}
-        <div class="score"><span class="name">${nameOf(s.psychic)} <span class="small c-psy">екстрасенс</span></span><span class="plus">+${r.points[s.psychic] || 0}</span></div>
+        <div class="li"><span class="name">${nameOf(s.psychic)} <span class="small c-psy">екстрасенс</span></span><span class="plus">+${r.points[s.psychic] || 0}</span></div>
       </div>
       <h2>Рахунок</h2>${scoreboard()}
       <div class="muted small">Очки за відстань: ${(s.zones || []).map(([d, p]) => `±${d}% — ${p}`).join(', ')}. Екстрасенс отримує середнє від очок решти.</div>`;

@@ -65,8 +65,9 @@ app/src/main/java/com/sokolovskiy/party/
   games/clocktower/ логіка «Кривавої вежі» (ролі, нічний порядок, інформація, номінації й голосування)
   update/      самооновлення: releases/latest → завантаження APK → PackageInstaller
 app/src/main/assets/web/
+  ui.css                     — дизайн-система: токени, компоненти, анімації (спільні для всіх ігор)
   index.html, shell.js/css   — підключення, лобі, вибір гри, QR, перемикач мережі
-  <game>.js/css              — екрани конкретної гри
+  <game>.js/css              — екрани конкретної гри: тема ([data-theme=<id>]) і лише власні елементи
 relay/         Node-ретранслятор для Render (+ test.js)
 ```
 
@@ -78,6 +79,13 @@ relay/         Node-ретранслятор для Render (+ test.js)
 3. `assets/web/<id>.js` з `PG.register('<id>', { render, click, onState, menu })`, `<id>.css`,
    і підключити їх в `index.html`. `menu()` лише перелічує пункти бокового меню хоста
    (`['newGame']` або `{ t, label }`) — кнопки, «Точно?» і надсилання `{ t }` бере на себе оболонка.
+4. Вигляд — з компонентів `ui.css` (`card`, `pick`, `chip`, `banner`, `li`, `headline`, `tiles`, `spectrum`…);
+   таємна картка й таймер — `PG.ui.flipCard()` / `PG.ui.timer()`. У `<id>.css` достатньо задати тему:
+   `[data-theme=<id>] { --accent: …; --on-accent: … }` (відтінки обчислюються самі) і стилі, яких немає в системі.
+5. Необов'язково — екран для телевізора: `GameSession.board()` віддає лише те, що можна бачити всім
+   (зазвичай `state(null, false, now)`), а `board(api)` у `<id>.js` малює його на весь екран (`tv-split`).
+   Телевізор відкриває адресу гравців із `?tv`, нічого не надсилає і тікає таймером в останні секунди.
+   Або хост просто транслює екран телефона (Miracast / Smart View) — `tv/TvPresenter` покаже там `/?tv` окремим вікном.
 
 CI на кожен push у `main`: тест ретранслятора, unit-тести, підписаний APK і реліз `v1.0.<run>`.
 

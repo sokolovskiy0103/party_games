@@ -17,6 +17,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.sokolovskiy.party.tv.TvPresenter
 import com.sokolovskiy.party.update.UpdateUi
 import com.sokolovskiy.party.update.Updater
 
@@ -24,6 +25,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var web: WebView
     private lateinit var updates: UpdateUi
+    private var tv: TvPresenter? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,6 +75,8 @@ class MainActivity : ComponentActivity() {
             val hub = PartyHost.ensure(this)
             runOnUiThread {
                 web.loadUrl("http://127.0.0.1:${hub.local.port}/host#${hub.hostToken}")
+                // casting the screen (Miracast / Smart View) gives a second display: the TV gets its own page there
+                if (!isDestroyed) tv = TvPresenter(this, "http://127.0.0.1:${hub.local.port}/?tv").also { it.start() }
             }
         }.start()
 
@@ -109,6 +113,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        tv?.stop()
         updates.stop()
         web.destroy()
         super.onDestroy()

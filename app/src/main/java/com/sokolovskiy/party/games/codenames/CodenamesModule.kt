@@ -50,5 +50,8 @@ class CodenamesModule : GameModule {
             for (p in env.room.players.values) game.players[p.id]?.connected = p.connected
             return game.stateJson(pid, isHost, now)
         }
+
+        // a viewer who is nobody sees exactly the public part
+        override fun board(now: Long): JSONObject = state(null, false, now)
     }
 }

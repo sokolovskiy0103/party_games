@@ -1,7 +1,7 @@
 // «Кодові імена» UI (classic teams and co-op Duet). Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   let armed = null;     // two-tap confirmations
@@ -79,7 +79,7 @@
     const view = duetView();
     const grid = `<div class="cn-grid">${(g().cards || []).map(cardHtml).join('')}</div>`;
     if (!view) return grid;
-    return `<div class="seg cn-view">
+    return `<div class="seg">
         <button class="${view === 'table' ? 'on' : ''}" data-act="view" data-v="table">🃏 Стіл</button>
         <button class="${view === 'key' ? 'on' : ''}" data-act="view" data-v="key">🗝️ Мій ключ</button>
       </div>
@@ -103,7 +103,7 @@
       const sudden = s.step === 'SUDDEN';
       return `<div class="card flat cn-head">
         <div class="row"><b>🟩 ${s.found} з ${s.agents}</b><span class="grow"></span>
-          ${sudden ? '<b class="bad">☠ раптова смерть</b>' : `<span>⏳ ходів: <b>${s.turnsLeft}</b></span>`}</div>
+          ${sudden ? '<b class="c-bad">☠ раптова смерть</b>' : `<span>⏳ ходів: <b>${s.turnsLeft}</b></span>`}</div>
       </div>`;
     }
     return `<div class="card flat cn-head">${[0, 1].map(t => `
@@ -117,7 +117,7 @@
     const s = g();
     const m = me();
     if (s.step === 'SUDDEN') {
-      return `<div class="card stack cn-sudden">
+      return `<div class="card hl bad stack">
         <b>☠ Ходи закінчились — раптова смерть</b>
         <div class="muted small">Підказок більше немає. Будь-хто може відкрити карту, яка, на вашу думку, є агентом на ключі <b>партнера</b>. Будь-який промах — поразка.</div>
         ${openBar()}</div>`;
@@ -125,29 +125,29 @@
     if (s.step === 'CLUE') {
       if (m && m.giver) {
         const nums = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1];
-        return `<div class="card stack cn-give">
+        return `<div class="card hl stack">
           <b>Твоя підказка</b>
           <div class="muted small">Одне слово і число — скільки карт ${duet() ? 'на твоєму ключі' : 'вашої команди'} воно пов'язує. Слова зі столу називати не можна.</div>
           <input id="cnClue" type="text" maxlength="${s.maxClue}" placeholder="Слово-підказка" autocomplete="off">
           <div class="chips cn-nums">${nums.map(n => `<button class="chip ${clueN === n ? 'on' : ''}" data-act="num" data-v="${n}">${numLabel(n)}</button>`).join('')}</div>
-          <div id="cnWarn" class="bad small" hidden>Це слово лежить на столі.</div>
+          <div id="cnWarn" class="c-bad small" hidden>Це слово лежить на столі.</div>
           <button class="big" data-act="clue">Дати підказку</button>
         </div>`;
       }
       const who = duet() ? sideLabel(s.turn) : `капітан ${nameOf(s.captains[s.turn])} (${sideLabel(s.turn)})`;
-      return `<div class="card flat center"><span class="spinner"></span> Підказку придумує ${who}</div>`;
+      return ui.wait(`Підказку придумує ${who}`, duet() ? '' : player(s.captains[s.turn]).name);
     }
     // GUESS
     const c = s.clue || { word: '', n: 0 };
-    let h = `<div class="card center cn-clue">
+    let h = `<div class="card center">
       <div class="muted small">Підказка від ${esc(c.by || '')}${duet() ? '' : ` · ${sideLabel(c.team)}`}</div>
-      <div class="cn-word">${esc(c.word)} <span class="cn-n">${numLabel(c.n)}</span></div>
+      <div class="headline xl">${esc(c.word)} <span class="badge">${numLabel(c.n)}</span></div>
       ${s.guessesLeft != null ? `<div class="muted small">Можна відкрити ще ${s.guessesLeft}</div>` : '<div class="muted small">Відкривати можна скільки завгодно</div>'}
     </div>`;
     if (m && m.guesser) h += `<div class="card stack">${openBar()}</div>`;
     else {
       const who = duet() ? sideLabel(1 - s.turn) : sideLabel(s.turn);
-      h += `<div class="card flat center muted"><span class="spinner"></span> Вгадують: ${who}</div>`;
+      h += ui.wait(`Вгадують: ${who}`);
     }
     return h;
   }
@@ -175,7 +175,7 @@
     return `<div class="card stack"><b>Підказки</b>
       <div class="cn-log">${s.log.slice().reverse().map(c => `<div class="row">
         ${duet() ? `<span class="muted small">${esc(c.by)}</span>` : sideLabel(c.team)}
-        <b>${esc(c.word)}</b><span class="cn-n small">${numLabel(c.n)}</span></div>`).join('')}</div></div>`;
+        <b>${esc(c.word)}</b><span class="badge sm">${numLabel(c.n)}</span></div>`).join('')}</div></div>`;
   }
 
   // ---------- views ----------
@@ -222,7 +222,7 @@
         <button class="big" data-act="start" ${s.canStart ? '' : 'disabled'}>Почати</button>`;
       if (!s.canStart) h += `<div class="muted small center">${s.mode === 'DUET' ? 'На кожній стороні має бути хоча б один гравець.' : `У кожній команді має бути щонайменше ${s.minPerTeam} гравці.`}</div>`;
     } else {
-      h += '<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне</span></div>';
+      h += ui.wait('Чекаємо, поки хост почне', '👑');
     }
     return h;
   }
@@ -231,7 +231,7 @@
     return head() + cluePanel() + board() + legend() + logCard();
   }
 
-  function overView() {
+  function overBanner() {
     const s = g();
     let verdict, cls;
     if (duet()) {
@@ -240,9 +240,13 @@
     } else if (myTeam() < 0) { verdict = `Перемогли ${TEAMS[s.winner].name.toLowerCase()}`; cls = 'meh'; }
     else if (s.winner === myTeam()) { verdict = 'Перемога! 🎉'; cls = 'good'; }
     else { verdict = 'Поразка'; cls = 'bad'; }
-    let h = `<div class="banner ${cls} pop"><h1>${verdict}</h1><div>${esc(s.reason || '')}</div>
+    return `<div class="banner ${cls}"><h1>${verdict}</h1><div>${esc(s.reason || '')}</div>
       ${duet() ? `<div class="muted small">Знайдено ${s.found} з ${s.agents}</div>` : `<div>${sideLabel(s.winner)}</div>`}</div>`;
-    h += board() + legend() + logCard();
+  }
+
+  function overView() {
+    const s = g();
+    let h = overBanner() + board() + legend() + logCard();
     h += api.isHost
       ? `<button class="big" data-act="start" ${s.canStart ? '' : 'disabled'}>Ще раз</button>
          <button class="ghost" data-act="lobby">Змінити команди чи режим</button>`
@@ -260,6 +264,14 @@
     a.send({ t: 'clue', word, n: clueN });
   }
 
+  /** TV: the table (never the key) next to the clue and the score; the lobby is the players' one. */
+  function tvView() {
+    const s = g();
+    if (s.phase === 'LOBBY') return lobbyView();
+    return `${s.phase === 'OVER' ? overBanner() : ''}<div class="tv-split"><div>${board()}</div>
+      <div class="stack">${s.phase === 'OVER' ? '' : head() + cluePanel()}${logCard()}</div></div>`;
+  }
+
   PG.register('codenames', {
     render(a) {
       api = a;
@@ -272,8 +284,13 @@
         case 'OVER': h = overView(); break;
         default: h = '';
       }
-      const tint = !duet() && myTeam() >= 0 ? 't' + myTeam() : '';
+      const tint = !duet() && myTeam() >= 0 ? 'tint t' + myTeam() : '';
       return `<div class="codenames stack ${tint}">${h}</div>`;
+    },
+
+    board(a) {
+      api = a;
+      return g() ? `<div class="codenames stack">${tvView()}</div>` : '';
     },
 
     onState(prev, next, a) {

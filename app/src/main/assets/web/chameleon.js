@@ -1,7 +1,7 @@
 // «Хамелеон» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   let revealed = false;   // role card flipped open
@@ -21,7 +21,7 @@
     const pts = (s.result && s.result.points) || {};
     const ps = [...s.players].sort((a, b) => b.score - a.score);
     return `<div class="card">${ps.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${me() && me().id === p.id ? ' <span class="muted small">(ти)</span>' : ''}</span>
         ${pts[p.id] ? `<span class="plus">+${pts[p.id]}</span>` : ''}
@@ -35,10 +35,10 @@
     const t = g().topic;
     if (!t) return '';
     return `<div class="card center stack">
-      <div class="muted small">Тема</div><div class="topic">${esc(t.name)}</div>
-      <div class="cards">${t.words.map(w => opts.pick
-        ? `<button class="wcard pickable" data-act="guess" data-w="${esc(w)}">${esc(w)}</button>`
-        : `<div class="wcard ${opts.mark === w ? 'mark' : ''} ${opts.dim && opts.dim !== w ? 'dim' : ''}">${esc(w)}</div>`).join('')}
+      <div class="muted small">Тема</div><div class="headline">${esc(t.name)}</div>
+      <div class="tiles">${t.words.map(w => opts.pick
+        ? `<button class="tile" data-act="guess" data-w="${esc(w)}">${esc(w)}</button>`
+        : `<div class="tile ${opts.mark === w ? 'on' : ''} ${opts.dim && opts.dim !== w ? 'dim' : ''}">${esc(w)}</div>`).join('')}
       </div></div>`;
   }
 
@@ -46,31 +46,21 @@
     const s = g();
     if (!me()) return '';
     if (!inRound()) return `<div class="card flat center muted">Ти приєднався під час раунду — зіграєш у наступному.</div>`;
-    if (!revealed) {
-      return `<div class="role hidden" data-act="flip">
-        <div style="font-size:40px">🂠</div>
-        <div class="name">Твоя роль</div>
-        <div class="what">Торкнись, щоб подивитися. Сховай екран від інших.</div>
-      </div>`;
-    }
     if (similar()) {
-      return `<div class="role PLAYER pop" data-act="flip">
+      return ui.flipCard({ open: revealed, back: `
           <div class="muted small">Твоє слово</div>
           <div class="word">${esc(s.word || '')}</div>
-          <div class="what">Описуй, що в тебе є, але не називай слова. У когось із вас слово інше, схоже на це.</div>
-          <div class="muted small">Торкнись, щоб сховати</div></div>`;
+          <div class="what">Описуй, що в тебе є, але не називай слова. У когось із вас слово інше, схоже на це.</div>` });
     }
     return isCham()
-      ? `<div class="role CHAM pop" data-act="flip">
-          <div style="font-size:40px">🦎</div>
-          <div class="name c-cham">Ти — Хамелеон</div>
-          <div class="what">Ти не знаєш слова. Слухай інші підказки й вдавай, що знаєш. Якщо тебе викриють — спробуй вгадати слово.</div>
-          <div class="muted small">Торкнись, щоб сховати</div></div>`
-      : `<div class="role PLAYER pop" data-act="flip">
+      ? ui.flipCard({ open: revealed, tone: 'var(--bad)', back: `
+          <div class="card-ico">🦎</div>
+          <div class="title c-cham">Ти — Хамелеон</div>
+          <div class="what">Ти не знаєш слова. Слухай інші підказки й вдавай, що знаєш. Якщо тебе викриють — спробуй вгадати слово.</div>` })
+      : ui.flipCard({ open: revealed, back: `
           <div class="muted small">Секретне слово</div>
           <div class="word">${esc(s.word || '')}</div>
-          <div class="what">Дай підказку одним словом: щоб свої зрозуміли, а Хамелеон — ні.</div>
-          <div class="muted small">Торкнись, щоб сховати</div></div>`;
+          <div class="what">Дай підказку одним словом: щоб свої зрозуміли, а Хамелеон — ні.</div>` });
   }
 
   function cluesList() {
@@ -79,9 +69,9 @@
     return `<div class="card">${s.order.map(id => {
       const c = (s.clues || []).find(x => x.pid === id);
       const now = id === turn;
-      return `<div class="score ${now ? 'now' : ''}">
+      return `<div class="li ${now ? 'now' : ''}">
         <span class="name">${nameOf(id)}</span>
-        ${c ? `<span class="clue">${esc(c.text)}</span>` : now ? '<span class="spinner"></span>' : '<span class="muted small">чекає</span>'}
+        ${c ? `<span class="clue">${esc(c.text)}</span>` : now ? ui.typing('sm') : '<span class="muted small">чекає</span>'}
       </div>`;
     }).join('')}</div>`;
   }
@@ -107,7 +97,7 @@
       <div class="muted small">${similar()
         ? 'Усі отримують одне слово, а Хамелеон — інше, схоже. Він про це не знає. По черзі описуйте, що у вас є, не називаючи слова, і вирахуйте, хто має інше.'
         : 'Усі бачать тему й 16 слів. Одне з них — секретне, його знають усі, крім Хамелеона. По черзі кожен дає підказку одним словом. Якщо Хамелеона викрили, він ще може вгадати слово.'}</div></div>`;
-    if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне раунд</span></div>`;
+    if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне раунд', '👑');
     h += `<h2>Гравці · ${n}</h2>${scoreboard()}`;
     if (api.isHost) {
       h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>${s.round ? 'Наступний раунд' : 'Почати гру'}</button>`;
@@ -154,7 +144,7 @@
       <h1 class="center">Хто Хамелеон?</h1>
       ${cluesList()}`;
     if (inRound()) {
-      h += `<div class="grid2">${s.players.filter(p => p.inRound && p.id !== me().id).map(p =>
+      h += `<div class="picks two">${s.players.filter(p => p.inRound && p.id !== me().id).map(p =>
         `<button class="pick ${s.myVote === p.id ? 'on' : ''}" data-act="vote" data-pid="${p.id}">${esc(p.name)}</button>`).join('')}</div>`;
       if (s.myVote) h += `<div class="muted small center">Голос прийнято. Можна змінити, поки не проголосували всі.</div>`;
     }
@@ -165,11 +155,11 @@
 
   function guessView() {
     const s = g();
-    let h = `<div class="banner meh pop"><h1>Хамелеона викрито!</h1><div>Це <b class="c-cham">${nameOf(s.accused)}</b></div></div>`;
+    let h = `<div class="banner meh"><h1>Хамелеона викрито!</h1><div>Це <b class="c-cham">${nameOf(s.accused)}</b></div></div>`;
     if (isCham()) {
       h += `<div class="card center">Вгадай секретне слово — і отримаєш очко.</div>${wordGrid({ pick: true })}`;
     } else {
-      h += `<div class="card center"><span class="spinner"></span> <b>${nameOf(s.accused)}</b> пробує вгадати слово…</div>${wordGrid({ mark: s.word })}`;
+      h += ui.wait(`<b>${nameOf(s.accused)}</b> пробує вгадати слово`, (s.players.find(p => p.id === s.accused) || {}).name) + wordGrid({ mark: s.word });
     }
     if (api.isHost) h += `<button class="ghost" data-act="skipGuess">Пропустити здогадку</button>`;
     return h;
@@ -195,11 +185,11 @@
     }
     const t = r.tally || {};
     const votes = Object.keys(t).sort((a, b) => t[b] - t[a]).map(id => `${nameOf(id)} — ${t[id]}`).join(', ');
-    return `<div class="banner ${cls} pop"><h1>${verdict}</h1><div>${esc(r.note || '')}</div></div>
-      <div class="card center stack ${fresh ? 'reveal' : ''}">
+    return `<div class="banner ${cls}"><h1>${verdict}</h1><div>${esc(r.note || '')}</div></div>
+      <div class="card center stack ${fresh ? 'fx-pop' : ''}" style="--d:.25s">
         <div>Хамелеон: <b class="c-cham">${nameOf(s.chameleon)}</b></div>
-        <div>${similar() ? 'Слово більшості' : 'Слово'}: <span class="word small-word">${esc(s.word || '')}</span></div>
-        ${similar() && s.chameleonWord ? `<div>У Хамелеона було: <span class="word small-word">${esc(s.chameleonWord)}</span></div>` : ''}
+        <div>${similar() ? 'Слово більшості' : 'Слово'}: <span class="word sm">${esc(s.word || '')}</span></div>
+        ${similar() && s.chameleonWord ? `<div>У Хамелеона було: <span class="word sm">${esc(s.chameleonWord)}</span></div>` : ''}
         ${r.guess ? `<div class="muted small">Хамелеон назвав: ${esc(r.guess)}</div>` : ''}
         <div class="muted small">Голоси: ${votes || 'ніхто не проголосував'}</div>
       </div>

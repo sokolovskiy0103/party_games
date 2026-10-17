@@ -1,17 +1,16 @@
 // «Інсайдер» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   const ROLE = {
-    MASTER: { name: 'Майстер', what: 'Ти знаєш слово. Відповідай на питання лише «так», «ні» або «не знаю». Коли хтось назве слово — натисни, хто вгадав.' },
-    INSIDER: { name: 'Інсайдер', what: 'Ти теж знаєш слово. Непомітно підведи всіх до відповіді — і не видай себе.' },
-    COMMON: { name: 'Гравець', what: 'Ставте Майстру питання «так/ні» і вгадайте слово. А потім знайдіть Інсайдера.' },
+    MASTER: { tone: 'var(--violet)', name: 'Майстер', what: 'Ти знаєш слово. Відповідай на питання лише «так», «ні» або «не знаю». Коли хтось назве слово — натисни, хто вгадав.' },
+    INSIDER: { tone: 'var(--bad)', name: 'Інсайдер', what: 'Ти теж знаєш слово. Непомітно підведи всіх до відповіді — і не видай себе.' },
+    COMMON: { tone: 'var(--good)', name: 'Гравець', what: 'Ставте Майстру питання «так/ні» і вгадайте слово. А потім знайдіть Інсайдера.' },
   };
 
   let revealed = false;      // role card flipped open
   let pickedGuesser = null;  // Master's two-step "who guessed"
-  let timerTotal = 0;
   let api = PG.api;
 
   function eye(cls = 'eye') {
@@ -30,27 +29,14 @@
   const canRun = () => g() && (api.isHost || isMaster());
   const nameOf = id => esc(((g() && g().players.find(p => p.id === id)) || {}).name || '?');
 
-  function remainingMs() {
-    const s = g();
-    if (!s || !s.deadline) return 0;
-    return Math.max(0, s.deadline - api.now());
-  }
   function fmt(ms) {
     const s = Math.ceil(ms / 1000);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }
   function timerHtml(total) {
-    timerTotal = total;
-    return `<div class="stack"><div class="timer" id="timer">${fmt(remainingMs())}</div>
-      <div class="bar"><i id="timerBar" style="width:${total ? (remainingMs() / total * 100) : 0}%"></i></div></div>`;
+    const t = { deadline: g().deadline, total, low: 30000 };
+    return `<div class="stack">${ui.timer(t)}${ui.timerBar(t)}</div>`;
   }
-  setInterval(() => {
-    const t = document.getElementById('timer'); if (!t || !g()) return;
-    const ms = remainingMs();
-    t.textContent = fmt(ms);
-    t.classList.toggle('low', ms < 30000);
-    const b = document.getElementById('timerBar'); if (b && timerTotal) b.style.width = (ms / timerTotal * 100) + '%';
-  }, 250);
 
   // ---------- views ----------
   function scoreboard() {
@@ -58,7 +44,7 @@
     const pts = (s.result && s.result.points) || {};
     const ps = [...s.players].sort((a, b) => b.score - a.score);
     return `<div class="card">${ps.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${me() && me().id === p.id ? ' <span class="muted small">(ти)</span>' : ''}
           ${s.master === p.id && s.phase !== 'LOBBY' ? ' <span class="small c-MASTER">майстер</span>' : ''}</span>
@@ -82,7 +68,7 @@
         <div class="muted small">Класика — 5 хв. Обговорення триває стільки ж, скільки йшло вгадування.</div>
       </div>`;
     } else {
-      h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне раунд</span></div>`;
+      h += ui.wait('Чекаємо, поки хост почне раунд', '👑');
     }
     h += `<h2>Гравці · ${n}</h2>${scoreboard()}`;
     if (api.isHost) {
@@ -97,19 +83,10 @@
     if (!me()) return '';
     if (!r) return `<div class="card flat center muted">Ти приєднався під час раунду — зіграєш у наступному.</div>`;
     const info = ROLE[r];
-    if (!revealed) {
-      return `<div class="role hidden" data-act="flip">
-        <div style="font-size:40px">🂠</div>
-        <div class="name">Твоя роль</div>
-        <div class="what">Торкнись, щоб подивитися. Сховай екран від інших.</div>
-      </div>`;
-    }
-    return `<div class="role ${r} pop" data-act="flip">
-      <div class="name c-${r}">${info.name}</div>
+    return ui.flipCard({ open: revealed, tone: info.tone, back: `
+      <div class="title c-${r}">${info.name}</div>
       ${g().word && r !== 'COMMON' ? `<div class="muted small">Слово</div><div class="word">${esc(g().word)}</div>` : ''}
-      ${compact ? '' : `<div class="what">${info.what}</div>`}
-      <div class="muted small">Торкнись, щоб сховати</div>
-    </div>`;
+      ${compact ? '' : `<div class="what">${info.what}</div>`}` });
   }
 
   function rolesView() {
@@ -136,7 +113,7 @@
 
   function guessPicker(label) {
     const s = g();
-    return `<div class="grid2">${s.players.filter(p => p.inRound && p.id !== s.master).map(p =>
+    return `<div class="picks two">${s.players.filter(p => p.inRound && p.id !== s.master).map(p =>
         `<button class="pick ${pickedGuesser === p.id ? 'on' : ''}" data-act="pickGuesser" data-pid="${p.id}">${esc(p.name)}</button>`).join('')}</div>
       <button class="big" data-act="guessed" ${pickedGuesser ? '' : 'disabled'}>${pickedGuesser ? `${nameOf(pickedGuesser)} вгадав(ла)!` : label}</button>`;
   }
@@ -194,8 +171,8 @@
     } else if (iVote) {
       const v = s.myVote;
       h += `<div class="grid2">
-        <button class="yes" data-act="vote1" data-yes="1" ${v === true ? 'style="outline:3px solid #fff"' : ''}>Так, це Інсайдер</button>
-        <button class="no" data-act="vote1" data-yes="0" ${v === false ? 'style="outline:3px solid #fff"' : ''}>Ні, не він(вона)</button>
+        <button class="bad ${v === true ? 'on' : ''}" data-act="vote1" data-yes="1">Так, це Інсайдер</button>
+        <button class="good ${v === false ? 'on' : ''}" data-act="vote1" data-yes="0">Ні, не він(вона)</button>
       </div>
       ${v !== undefined ? '<div class="muted small center">Голос прийнято. Можна змінити, поки не проголосували всі.</div>' : ''}`;
     }
@@ -211,7 +188,7 @@
       <h1 class="center">Хто Інсайдер?</h1>
       <p class="muted center">Кожен вказує на одного. За рівних голосів вирішує вибір Майстра.</p>`;
     if (me() && (s.voters || []).includes(me().id)) {
-      h += `<div class="grid2">${cands.filter(id => id !== me().id).map(id =>
+      h += `<div class="picks two">${cands.filter(id => id !== me().id).map(id =>
         `<button class="pick ${s.myVote === id ? 'on' : ''}" data-act="vote2" data-pid="${id}">${nameOf(id)}${id === s.guesser ? ' <span class="muted small">вгадав</span>' : ''}</button>`).join('')}</div>`;
       if (s.myVote) h += `<div class="muted small center">Голос прийнято. Можна змінити, поки не проголосували всі.</div>`;
     }
@@ -240,9 +217,9 @@
     if (r.outcome === 'CAUGHT') { title = 'Інсайдера спіймано!'; cls = role === 'INSIDER' ? 'bad' : 'good'; }
     if (r.outcome === 'INSIDER_WINS') { title = 'Інсайдер переміг'; cls = role === 'INSIDER' ? 'good' : 'bad'; }
     if (!role) cls = 'meh';
-    let h = `<div class="banner ${cls} pop">${eye()}<h1>${title}</h1><div>${esc(r.note || '')}</div></div>
+    let h = `<div class="banner ${cls}">${eye()}<h1>${title}</h1><div>${esc(r.note || '')}</div></div>
       <div class="card center stack">
-        <div>Слово: <span class="word small-word">${esc(s.word || '')}</span></div>
+        <div>Слово: <span class="word sm">${esc(s.word || '')}</span></div>
         <div>Інсайдер: <b class="c-INSIDER">${nameOf(s.insider)}</b> · Майстер: <b class="c-MASTER">${nameOf(s.master)}</b></div>
         ${voteSummary(r)}
       </div>

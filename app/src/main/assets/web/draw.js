@@ -1,7 +1,7 @@
 // «Малювач» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   // Same order and count as Art.COLORS / Art.SIZES on the server: strokes carry indexes, not values.
   const COLORS = ['#111111', '#ffffff', '#e53935', '#fb8c00', '#fdd835', '#43a047', '#1e88e5', '#8e24aa', '#6d4c41', '#f48fb1', '#9e9e9e', '#ffcc99'];
@@ -33,25 +33,11 @@
     const s = g();
     return s && s.deadline ? Math.max(0, s.deadline - api.now()) : 0;
   }
-  function fmt(ms) {
-    const s = Math.ceil(ms / 1000);
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  }
-  // The markup stays the same while the clock runs (so a re-render never resets the canvas); the numbers are filled in here.
-  function updateTimer() {
+  // The server hands in whatever it has when time is up: make sure it has the last strokes.
+  setInterval(() => {
     const s = g();
-    const t = document.getElementById('drTimer');
-    if (t && s) {
-      const ms = remaining();
-      t.textContent = '⏱ ' + fmt(ms);
-      t.classList.toggle('low', ms < 10000);
-      const b = document.getElementById('drBar');
-      if (b && s.limit) b.style.width = (ms / s.limit * 100) + '%';
-    }
-    // The server hands in whatever it has when time is up: make sure it has the last strokes.
     if (s && s.phase === 'DRAW' && pad.dirty && remaining() < 2000) flush();
-  }
-  setInterval(updateTimer, 250);
+  }, 250);
 
   // ---------- canvas ----------
   function canvas() {
@@ -69,7 +55,6 @@
 
   /** Puts the one long-lived canvas into the freshly rendered slot. */
   function mount() {
-    updateTimer();
     const slot = document.getElementById('padSlot');
     if (!slot) return;
     const c = canvas();
@@ -192,23 +177,24 @@
 
   function header() {
     const s = g();
+    const t = { deadline: s.deadline, total: s.limit, low: 10000, pre: '⏱ ', cls: 'sm' };
     return `<div class="row head">
       <span class="tag">раунд ${s.round} з ${s.rounds}</span>
       ${s.index ? `<span class="tag">малюнок ${s.index} з ${s.total}</span>` : ''}
       <span class="grow"></span>
-      ${s.deadline ? '<span class="clock" id="drTimer"></span>' : ''}
+      ${s.deadline ? ui.timer(t) : ''}
     </div>
-    ${s.deadline ? '<div class="bar"><i id="drBar"></i></div>' : ''}`;
+    ${s.deadline ? ui.timerBar(t) : ''}`;
   }
 
   function progress(word, doneWord) {
     const s = g();
     const list = s.players.filter(p => p.id !== s.artist);
     return `<div class="card">${list.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${me() && p.id === me().id ? ' <span class="muted">(ти)</span>' : ''}</span>
-        <span class="small ${p.done ? 'ok' : 'muted'}">${p.done ? doneWord + ' ✓' : word + '…'}</span>
+        <span class="small ${p.done ? 'c-good' : 'muted'}">${p.done ? doneWord + ' ✓' : word + '…'}</span>
       </div>`).join('')}</div>`;
   }
 
@@ -224,7 +210,7 @@
     const s = g();
     const list = s.players.slice().sort((a, b) => b.score - a.score);
     return `<div class="card">${list.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}${me() && p.id === me().id ? ' <span class="muted">(ти)</span>' : ''}</span>
         ${withGain && p.gain ? `<span class="plus">+${p.gain}</span>` : ''}
@@ -248,7 +234,7 @@
       <b>Час на малюнок</b>${pick('drawSeconds', s.drawOptions.map(k => [k, k + ' с']), s.drawSeconds, s.drawSeconds + ' с')}
       <div class="muted small">Кожен таємно малює свою дивну тему. Потім малюнки показують по черзі: інші вигадують
         фальшиві назви, а тоді всі шукають справжню. Вгадав(ла) — +2, хтось повівся на твою вигадку — +1 за кожного, художнику — +1 за кожного, хто вгадав.</div></div>`;
-    if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне</span></div>`;
+    if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне', '👑');
     h += `<h2>Гравці · ${n}</h2><div class="card chips">${s.players.map(p => `<span class="chip"><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}</span>`).join('') || '<span class="muted">Поки нікого</span>'}</div>`;
     if (api.isHost) {
       h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>Почати</button>`;
@@ -279,20 +265,20 @@
     let h = header();
     if (s.notice) h += `<div class="notice">${esc(s.notice)}</div>`;
     if (!m) {
-      return h + `<div class="card flat center"><span class="spinner"></span> <span class="muted">Усі малюють…</span></div>` + progress('малює', 'готово') + hurry();
+      return h + ui.wait('Усі малюють') + progress('малює', 'готово') + hurry();
     }
     if (m.done) {
       h += `<div class="banner meh">Готово ✓<div class="small muted">Тема: «${esc(m.prompt)}». Чекаємо інших.</div></div>`;
       h += artSvg(pad.strokes, 'small');
       h += `<button class="ghost" data-act="unsubmit">Домалювати</button>`;
     } else {
-      h += `<div class="card prompt-card">
+      h += `<div class="card stack tight">
         <div class="muted small">${m.adult ? '🔥 ' : ''}Намалюй — тільки ти знаєш, що це:</div>
-        <div class="prompt">${esc(m.prompt)}</div>
+        <div class="headline fx-pop" data-k="${esc(m.prompt)}">${esc(m.prompt)}</div>
         <div class="row"><span class="muted small grow">Без букв і цифр!</span>
           ${m.canSwap ? '<button class="mini ghost" data-act="swap">Інша тема</button>' : ''}</div>
       </div>`;
-      h += `<div id="padSlot" class="padslot"></div>`;
+      h += `<div id="padSlot" class="padslot" data-keep></div>`;
       if (full()) h += `<div class="notice small">Місце на малюнку скінчилось — можна лише відмінити штрихи.</div>`;
       h += tools();
       h += `<button class="big" data-act="submit" ${pad.strokes.length ? '' : 'disabled'}>Готово</button>`;
@@ -326,9 +312,9 @@
     const voting = m && !isArtist();
     let h = header() + artSvg(s.art);
     if (m && isArtist()) h += `<div class="banner meh">Твій малюнок: «${esc(m.prompt)}»<div class="small muted">Дивись, хто вгадає.</div></div>`;
-    h += `<h2>${voting ? 'Що тут насправді намальовано?' : 'Варіанти'}</h2><div class="options">${s.options.map((o, i) => voting
-      ? `<button class="opt ${m.vote === i ? 'picked' : ''}" data-act="vote" data-v="${i}" ${o.mine ? 'disabled' : ''}>${esc(o.text)}${o.mine ? ' <span class="small muted">(твоя)</span>' : ''}</button>`
-      : `<div class="opt">${esc(o.text)}</div>`).join('')}</div>`;
+    h += `<h2>${voting ? 'Що тут насправді намальовано?' : 'Варіанти'}</h2><div class="picks">${s.options.map((o, i) => voting
+      ? `<button class="pick ${m.vote === i ? 'on' : ''}" data-act="vote" data-v="${i}" ${o.mine ? 'disabled' : ''}>${esc(o.text)}${o.mine ? ' <span class="small muted">(твоя)</span>' : ''}</button>`
+      : `<div class="pick">${esc(o.text)}</div>`).join('')}</div>`;
     h += `<h2>Голосують</h2>` + progress('думає', 'обрав(ла)') + hurry();
     return h;
   }
@@ -338,14 +324,14 @@
     const mine = m && s.players.find(p => p.id === m.id);
     const gain = mine ? mine.gain : 0;
     let h = header() + artSvg(s.art);
-    h += `<div class="banner good pop"><div class="small">Насправді це</div><div class="truth">«${esc(s.truth)}»</div>
+    h += `<div class="banner good"><div class="small">Насправді це</div><div class="truth">«${esc(s.truth)}»</div>
       <div class="small muted">малював(ла) ${nameOf(s.artist)}</div></div>`;
     if (m) h += `<div class="center small">${gain ? `<b class="plus">+${gain} ${pts(gain)}</b> тобі за цей малюнок` : '<span class="muted">Цього разу без очок</span>'}</div>`;
     if (s.notice) h += `<div class="notice">${esc(s.notice)}</div>`;
     const opts = s.options.slice().sort((a, b) => (b.real - a.real) || (b.voters.length - a.voters.length));
-    h += `<div class="options">${opts.map(o => `
-      <div class="opt result ${o.real ? 'real' : ''}">
-        <div class="row"><b class="grow">${esc(o.text)}</b>${o.real ? '<span class="tag ok">правда</span>' : '<span class="tag">вигадка</span>'}</div>
+    h += `<div class="picks">${opts.map(o => `
+      <div class="pick result ${o.real ? 'good' : ''}">
+        <div class="row"><b class="grow">${esc(o.text)}</b>${o.real ? '<span class="tag good">правда</span>' : '<span class="tag">вигадка</span>'}</div>
         ${o.real ? '' : `<div class="small muted">вигадав(ла): ${o.authors.map(nameOf).join(', ') || '—'}</div>`}
         <div class="small">${o.voters.length ? '🗳 ' + o.voters.map(nameOf).join(', ') : '<span class="muted">ніхто не обрав</span>'}</div>
       </div>`).join('')}</div>`;
@@ -366,7 +352,7 @@
     const eye = list.slice().sort((a, b) => b.found - a.found)[0];
     let h = '';
     if (s.notice) h += `<div class="notice">${esc(s.notice)}</div>`;
-    h += `<div class="banner good pop"><h1>🏆 ${winners}</h1><div>${top} ${pts(top)}</div></div>`;
+    h += `<div class="banner good"><span class="emoji">🏆</span><h1>${winners}</h1><div>${top} ${pts(top)}</div></div>`;
     h += scoreboard(false);
     if (liar && liar.fooled > 0) h += `<div class="card flat center small">🤥 Найкращий брехун: <b>${esc(liar.name)}</b> — обдурив(ла) ${liar.fooled} ${times(liar.fooled)}</div>`;
     if (eye && eye.found > 0) h += `<div class="card flat center small">🔍 Найзіркіше око: <b>${esc(eye.name)}</b> — вгадав(ла) ${eye.found} ${times(eye.found)}</div>`;

@@ -1,7 +1,7 @@
 // «Сапери» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   // What I'm doing on my turn: tool = null (a plain cut) or { src: 'char'|'equip', e, needs, name, emoji }.
@@ -9,7 +9,6 @@
   let sel = [];        // [{ to, i }] picked teammate wires
   let target = null;   // picked teammate (Сканер)
   let guess = null;    // picked value (0 = yellow)
-  let timerTotal = 0;
 
   const YELLOW = 0;
   const g = () => api.g;
@@ -65,23 +64,14 @@
     return `<span class="fuse" title="Помилки: ${s.mistakes} з ${s.maxMistakes} допустимих">${h}</span>`;
   }
 
-  function remainingMs() { const s = g(); return s && s.deadline ? Math.max(0, s.deadline - api.now()) : 0; }
-  setInterval(() => {
-    const t = document.getElementById('bombTimer'); if (!t || !g()) return;
-    const ms = remainingMs();
-    t.textContent = Math.ceil(ms / 1000) + ' с';
-    t.classList.toggle('low', ms < 15000);
-    const b = document.getElementById('bombTimerBar'); if (b && timerTotal) b.style.width = (ms / timerTotal * 100) + '%';
-  }, 250);
 
   function header() {
     const s = g();
     const lv = s.levels[s.level - 1];
     let h = `<div class="row head"><span class="tag">місія ${s.level} · ${esc(lv.name)}</span><span class="grow"></span>${fuse()}</div>`;
     if (s.phase === 'PLAY' && s.deadline) {
-      timerTotal = s.turnSeconds * 1000;
-      h += `<div class="row clock"><span id="bombTimer" class="small">${Math.ceil(remainingMs() / 1000)} с</span>
-        <div class="bar grow"><i id="bombTimerBar" style="width:${remainingMs() / timerTotal * 100}%"></i></div></div>`;
+      const t = { deadline: s.deadline, total: s.turnSeconds * 1000, low: 15000, fmt: 'sec', cls: 'sm' };
+      h += `<div class="row clock">${ui.timer(t)}${ui.timerBar(t)}</div>`;
     }
     const flags = [];
     if (s.shield) flags.push('🛡️ щит увімкнено');
@@ -150,7 +140,7 @@
       const lockTo = want === 2 && sel.length ? sel[0].to : null;
       return `<div class="card panel mate ${s.turn === p.id ? 'turn' : ''}">
         <div class="row"><span class="dot ${p.connected ? '' : 'off'}"></span><b>${esc(p.name)}</b>${charBadge(p.char)}<span class="grow"></span>
-          ${s.turn === p.id ? '<span class="tag">хід</span>' : ''}${s.phase === 'SETUP' ? (p.ready ? '<span class="small good">✓</span>' : '<span class="small muted">обирає…</span>') : ''}</div>
+          ${s.turn === p.id ? '<span class="tag">хід</span>' : ''}${s.phase === 'SETUP' ? (p.ready ? '<span class="small c-good">✓</span>' : '<span class="small muted">обирає…</span>') : ''}</div>
         ${handOpen(p.wires.length)}${p.wires.map((w, i) => wire(w, i, {
           pick: want && !w.c && !(w.k === 'r' && w.i) && (!lockTo || lockTo === p.id), to: p.id,
           sel: sel.some(x => x.to === p.id && x.i === i),
@@ -227,8 +217,8 @@
     const s = g();
     const m = me();
     if (!m || !m.inGame) return '';
-    if (!myTurn()) return `<div class="card flat center"><span class="spinner"></span> <span class="muted">Ходить <b>${esc(nameOf(s.turn))}</b></span></div>`;
-    let h = `<div class="card stack act"><div class="your-turn">Твій хід ✂️</div>`;
+    if (!myTurn()) return ui.wait(`Ходить <b>${esc(nameOf(s.turn))}</b>`, nameOf(s.turn));
+    let h = `<div class="card hl stack"><div class="your-turn">Твій хід ✂️</div>`;
     if (m.canReveal) return h + `<div class="muted small">У тебе лишились тільки червоні дроти.</div><button class="big" data-act="reds">Показати червоні</button></div>`;
     if (tool) return h + toolPanel() + '</div>';
     const s1 = sel[0];
@@ -276,7 +266,7 @@
         Влучив — обидва дроти перерізано. Помилився — детонатор цокає. Червоний дріт — вибух.
         З другої місії в кожного є персонаж з одноразовою здібністю, а на пульті — спорядження.</div></div>`;
     if (s.best) h += `<div class="card flat center">Пройдено місій за вечір: <b>${s.best}</b></div>`;
-    if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне</span></div>`;
+    if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне', '👑');
     h += `<h2>Гравці · ${n}</h2><div class="card chips">${s.players.map(p => `<span class="chip"><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}</span>`).join('') || '<span class="muted">Поки нікого</span>'}</div>`;
     if (api.isHost) {
       h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>Почати</button>`;
@@ -309,8 +299,8 @@
     const s = g();
     const lv = s.levels[s.level - 1];
     let h = won
-      ? `<div class="banner good pop"><h1>Бомбу знешкоджено! 🎉</h1><div>Місію ${s.level} «${esc(lv.name)}» пройдено${s.mistakes ? `, помилок: ${s.mistakes}` : ' без жодної помилки'}.</div></div>`
-      : `<div class="banner bad pop boom-banner"><h1>БАХ! 💥</h1><div>${s.mistakes > s.maxMistakes ? 'Детонатор не витримав ще однієї помилки.' : 'Перерізано червоний дріт.'}</div></div>`;
+      ? `<div class="banner good"><h1>Бомбу знешкоджено! 🎉</h1><div>Місію ${s.level} «${esc(lv.name)}» пройдено${s.mistakes ? `, помилок: ${s.mistakes}` : ' без жодної помилки'}.</div></div>`
+      : `<div class="banner bad"><h1>БАХ! 💥</h1><div>${s.mistakes > s.maxMistakes ? 'Детонатор не витримав ще однієї помилки.' : 'Перерізано червоний дріт.'}</div></div>`;
     h += header();
     h += `<h2>Усі дроти</h2><div class="stack">${s.players.filter(p => p.inGame).map(p => `
       <div class="card panel mate"><div class="row"><b>${esc(p.name)}</b>${charBadge(p.char)}</div>${handOpen(p.wires.length)}${p.wires.map((w, i) =>

@@ -1,7 +1,7 @@
 // «Кривава вежа» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   let revealed = false;   // role card flipped open
@@ -12,8 +12,6 @@
   let showGrim = false;
   let showLog = false;
   let armed = null;
-  let popRole = false;    // play the card animation once, right after a flip
-  let poppedOver = false; // the end banner animates once per game
 
   const KINDS = { TOWNSFOLK: 'Містянин', OUTSIDER: 'Чужинець', MINION: 'Поплічник', DEMON: 'Демон' };
   const KINDS_PL = { TOWNSFOLK: 'Містяни', OUTSIDER: 'Чужинці', MINION: 'Поплічники', DEMON: 'Демон' };
@@ -31,20 +29,12 @@
     const m = me();
     if (!m || !m.role) return '';
     const r = role(m.role);
-    if (!revealed) {
-      return `<div class="role hidden" data-act="flip">
-        <div style="font-size:36px">🂠</div><div class="rname">Твоя роль</div>
-        <div class="what">Торкнись, щоб подивитися. Сховай екран від інших.</div></div>`;
-    }
-    const pop = popRole ? 'pop' : '';
-    popRole = false;
-    return `<div class="role ${m.evil ? 'evil' : 'good'} ${pop}" data-act="flip">
-      <div style="font-size:40px">${r.emoji}</div>
-      <div class="rname">${esc(r.title)}</div>
+    return ui.flipCard({ open: revealed, tone: m.evil ? 'var(--evil)' : 'var(--goodc)', back: `
+      <div class="card-ico fx-pop" data-k="${esc(m.role)}">${r.emoji}</div>
+      <div class="title">${esc(r.title)}</div>
       <div class="kind">${KINDS[r.kind]} · ${m.evil ? '<b class="c-evil">ти на боці зла</b>' : '<b class="c-good">ти на боці добра</b>'}</div>
       <div class="what">${esc(r.ability)}</div>
-      ${m.master ? `<div class="small">Твій господар: <b>${nameOf(m.master)}</b></div>` : ''}
-      <div class="muted small">Торкнись, щоб сховати</div></div>`;
+      ${m.master ? `<div class="small">Твій господар: <b>${nameOf(m.master)}</b></div>` : ''}` });
   }
 
   function notesCard(onlyNight) {
@@ -73,7 +63,7 @@
     const c = g().composition;
     if (!c) return '';
     return `<div class="chips">${['TOWNSFOLK', 'OUTSIDER', 'MINION', 'DEMON'].map(k =>
-      `<span class="chip ${k === 'MINION' || k === 'DEMON' ? 'evilchip' : ''}">${KINDS_PL[k]}: ${c[k]}</span>`).join('')}</div>
+      `<span class="chip ${k === 'MINION' || k === 'DEMON' ? 'bad' : ''}">${KINDS_PL[k]}: ${c[k]}</span>`).join('')}</div>
       <div class="muted small">Барон, якщо він у грі, додає двох Чужинців замість двох Містян.</div>`;
   }
 
@@ -91,10 +81,10 @@
         // never in a grid you pick from: it would change under your finger as others tap
         x.pending && !(opts && opts.act) ? '⏳' : '',
       ].join('');
-      const label = `<span class="sn">${i + 1}</span><span class="nm">${esc(x.name)}${me() && me().id === x.id ? ' <span class="muted small">(ти)</span>' : ''}</span><span class="mk">${marks}</span>`;
+      const label = `<span class="badge round soft sm">${i + 1}</span><span class="nm">${esc(x.name)}${me() && me().id === x.id ? ' <span class="muted small">(ти)</span>' : ''}</span><span class="mk">${marks}</span>`;
       return can
-        ? `<button class="seat ${x.alive ? '' : 'dead'} ${on ? 'on' : ''}" data-act="${opts.act}" data-pid="${x.id}">${label}</button>`
-        : `<div class="seat ${x.alive ? '' : 'dead'} ${on ? 'on' : ''}">${label}</div>`;
+        ? `<button class="pick seat ${x.alive ? '' : 'dim'} ${on ? 'on' : ''}" data-act="${opts.act}" data-pid="${x.id}">${label}</button>`
+        : `<div class="pick seat ${x.alive ? '' : 'dim'} ${on ? 'on' : ''}">${label}</div>`;
     }).join('')}</div>`;
   }
 
@@ -127,7 +117,7 @@
     h += `<h2>Місця за столом · ${n}</h2>
       <div class="muted small">Сядьте по колу саме в такому порядку — для Кухаря й Емпата це важливо.</div>
       <div class="card">${s.seating.map((id, i) => `
-        <div class="score"><span class="sn">${i + 1}</span><span class="name">${nameOf(id)}</span>
+        <div class="li"><span class="badge round soft sm">${i + 1}</span><span class="name">${nameOf(id)}</span>
           ${api.isHost ? `<button class="mini ghost" data-act="seat" data-pid="${id}" data-d="-1" ${i ? '' : 'disabled'}>↑</button><button class="mini ghost" data-act="seat" data-pid="${id}" data-d="1" ${i < n - 1 ? '' : 'disabled'}>↓</button>` : ''}
         </div>`).join('') || '<div class="muted">Поки нікого</div>'}</div>`;
     if (api.isHost) h += `<button class="ghost" data-act="shuffle">Перемішати місця</button>`;
@@ -137,7 +127,7 @@
       h += `<button class="big" data-act="start" ${s.canStart ? '' : 'disabled'}>Роздати ролі</button>`;
       if (!s.canStart) h += `<div class="muted small center">Потрібно від ${s.minPlayers} до ${s.maxPlayers} гравців.</div>`;
     } else {
-      h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост роздасть ролі</span></div>`;
+      h += ui.wait('Чекаємо, поки хост роздасть ролі', '👑');
     }
     return h;
   }
@@ -153,7 +143,7 @@
     const s = g();
     const myId = me().id;
     const can = x => !(task.notSelf && x.id === myId) && !(task.aliveOnly && !x.alive);
-    let h = `<div class="card stack task"><div>${esc(task.prompt)}</div>
+    let h = `<div class="card hl stack"><div>${esc(task.prompt)}</div>
       ${task.picks > 1 ? `<div class="muted small">Обери ${task.picks}.</div>` : ''}</div>`;
     h += seatGrid({ act: 'pick', can, on: x => picks.includes(x.id) });
     h += `<button class="big" data-act="confirmPick" ${picks.length === task.picks ? '' : 'disabled'}>Підтвердити${picks.length ? ': ' + picks.map(nameOf).join(', ') : ''}</button>`;
@@ -163,7 +153,7 @@
   function waiting(text) {
     const s = g();
     const left = s.seats.filter(x => x.pending).length;
-    return `<div class="card flat center stack"><div><span class="spinner"></span> ${text}</div>
+    return `<div class="card flat center stack"><div>${ui.typing()}</div><div>${text}</div>
       ${api.isHost && left ? `<div class="muted small">Ще не закінчили: ${left}</div>` : ''}</div>`;
   }
 
@@ -199,7 +189,7 @@
     const mine = v.votes[myId];
     const yes = Object.keys(v.votes).filter(k => v.votes[k]);
     const iAmDead = me() && me().seated && seat(myId) && !seat(myId).alive;
-    let h = `<div class="card stack vote">
+    let h = `<div class="card hl stack vote">
       <div class="center"><span class="tag">голосування</span></div>
       <div class="center big-line"><b>${nameOf(v.nominator)}</b> висуває <b class="c-evil">${nameOf(v.nominee)}</b></div>
       <div class="center">За: <b>${yes.length}</b> · потрібно щонайменше <b>${s.threshold}</b>${s.blockVotes ? ` і більше, ніж ${s.blockVotes}` : ''}</div>`;
@@ -222,7 +212,7 @@
     if (!seated() || !m.alive || s.vote) return '';
     if (mode) {
       const can = x => x.alive && (mode === 'shoot' ? x.id !== m.id : !x.nominated);
-      let h = `<div class="card stack task"><b>${mode === 'nominate' ? '🎯 Кого висуваєш на страту?' : '🏹 У кого стріляєш?'}</b>
+      let h = `<div class="card hl stack"><b>${mode === 'nominate' ? '🎯 Кого висуваєш на страту?' : '🏹 У кого стріляєш?'}</b>
         <div class="muted small">${mode === 'shoot' ? 'Постріл бачать усі. Якщо ти справжній Мисливець і влучиш у Демона — він помре. Раз за гру.' : 'Висуваєш раз на день, і кожного можна висунути лише раз на день.'}</div></div>`;
       h += seatGrid({ act: 'target', can, on: x => x.id === target });
       h += `<div class="grid2"><button class="ghost" data-act="cancelMode">Скасувати</button>
@@ -264,12 +254,10 @@
     const good = s.winner === 'GOOD';
     const mine = me() && me().seated ? (me().evil ? 'EVIL' : 'GOOD') : null;
     const cls = mine ? (mine === s.winner ? 'good' : 'bad') : 'meh';
-    const pop = poppedOver ? '' : 'pop';
-    poppedOver = true;
-    let h = `<div class="banner ${cls} ${pop}"><h1>${good ? 'Перемогло добро 😇' : 'Перемогло зло 😈'}</h1><div>${esc(s.winReason || '')}</div></div>`;
+    let h = `<div class="banner ${cls}"><h1>${good ? 'Перемогло добро 😇' : 'Перемогло зло 😈'}</h1><div>${esc(s.winReason || '')}</div></div>`;
     h += `<div class="card">${s.seats.map((x, i) => {
       const r = role(x.role), sh = role(x.shown);
-      return `<div class="score"><span class="sn">${i + 1}</span>
+      return `<div class="li"><span class="badge round soft sm">${i + 1}</span>
         <span class="name">${esc(x.name)} ${x.alive ? '' : '💀'}<div class="small ${x.evil ? 'c-evil' : 'c-good'}">${r.emoji} ${esc(r.title)}${x.role !== x.shown ? ` <span class="muted">(думав(ла), що ${esc(sh.title)})</span>` : ''}</div></span></div>`;
     }).join('')}</div>`;
     h += showLog
@@ -307,10 +295,9 @@
         if (prev) a.vibrate(next.phase === 'NIGHT' ? [60, 60, 60] : 150);
       }
       if (!prev || prev.phase === 'LOBBY' || prev.phase === 'OVER') { if (next.phase === 'NIGHT') revealed = false; }
-      if (next.phase !== 'OVER') poppedOver = false;
       // a fresh night task, or my role changed under me (Scarlet Woman, star-pass)
       const role = s => s && s.me && s.me.role;
-      if (prev && role(prev) && role(prev) !== role(next)) { revealed = true; popRole = true; a.vibrate([200, 100, 200]); }
+      if (prev && role(prev) && role(prev) !== role(next)) { revealed = true; a.vibrate([200, 100, 200]); }
       if (prev && !prev.vote && next.vote) a.vibrate(100);
     },
 
@@ -319,7 +306,7 @@
       const el = e.target.closest('[data-act]');
       if (!el || el.disabled) return;
       switch (el.dataset.act) {
-        case 'flip': revealed = !revealed; popRole = revealed; return a.render();
+        case 'flip': revealed = !revealed; return a.render();
         case 'script': showScript = !showScript; return a.render();
         case 'grim': showGrim = !showGrim; return a.render();
         case 'log': showLog = !showLog; return a.render();

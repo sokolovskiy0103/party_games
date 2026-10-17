@@ -1,28 +1,23 @@
-/* «Детектор правди»: a cool teal take on the shell palette. */
-body[data-game=truth] {
+/* «Детектор правди»: cool teal. */
+[data-theme=truth] {
   --accent: #3ddcc0;
   --on-accent: #04241e;
-  --accent-soft: #123a33;
-  --accent-text: #a8f1e3;
 }
 
 .truth .head { align-items: center; }
-.truth .question { font-size: 22px; font-weight: 900; color: var(--accent-text); letter-spacing: -.2px; line-height: 1.25; }
-.truth .row.two { display: flex; gap: 10px; }
-.truth .row.two > * { flex: 1; }
 /* «Так» and «Ні» look alike on purpose: a glance at someone's screen must not give the answer away. */
-.truth .choice { font-size: 19px; padding: 18px 8px; background: var(--accent-soft); color: var(--text); border: 2px solid transparent; }
-.truth .choice.picked, .truth .num.picked { border-color: var(--accent); outline: 3px solid var(--accent); outline-offset: 2px; }
+.truth .choice { font-size: 19px; padding: 18px 8px; }
 .truth .nums { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.truth .num { min-width: 48px; padding: 12px 0; font-size: 18px; font-weight: 800; background: var(--accent-soft); color: var(--text); border: 2px solid transparent; }
-.truth .ok { color: var(--good); }
-.truth .gain { font-weight: 800; color: var(--good); }
 
 /* Reveal: orange figures said «так», black ones «ні». */
 .truth .people { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-bottom: 10px; }
-.truth .person { width: 34px; height: 46px; stroke-width: 1.5; }
+.truth .person { width: 34px; height: 46px; stroke-width: 1.5; animation: fx-drop .5s var(--bounce) backwards; }
+.truth .person:nth-child(2) { animation-delay: .08s; } .truth .person:nth-child(3) { animation-delay: .16s; }
+.truth .person:nth-child(4) { animation-delay: .24s; } .truth .person:nth-child(5) { animation-delay: .32s; }
+.truth .person:nth-child(6) { animation-delay: .4s; } .truth .person:nth-child(7) { animation-delay: .48s; }
+.truth .person:nth-child(n+8) { animation-delay: .56s; }
 .truth .person.yes { fill: #ff8a1f; stroke: #ffb066; }
 .truth .person.no { fill: #0a0a0a; stroke: #6b7280; }
 .truth .tally { font-size: 18px; }
 .truth .tally .yes { color: #ff9d3d; }
-.truth .tally .no { color: var(--muted, #9aa3b5); }
+.truth .tally .no { color: var(--muted); }

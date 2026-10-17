@@ -1,44 +1,23 @@
-/* «Кодові імена»: a spy-dossier amber palette; in classic the viewer's team colour tints their own screen. */
-body[data-game=codenames] {
+/* «Кодові імена»: spy-dossier amber; in classic the viewer's team colour tints their own screen (.tint). */
+[data-theme=codenames] {
   --accent: #f0b54a;
   --on-accent: #241703;
-  --accent-soft: #33260f;
-  --accent-text: #ffe0a6;
-  --t0: #4da3ff;
-  --t1: #ff5d6c;
   --cn-green: #3ecf6e;
-  --cn-neutral: #cdbb8e;
   --cn-assassin: #0b0b0f;
 }
-.codenames.t0 { --accent: var(--t0); --on-accent: #04101f; --accent-soft: #11243d; --accent-text: #b9dcff; }
-.codenames.t1 { --accent: var(--t1); --on-accent: #22050a; --accent-soft: #3a1822; --accent-text: #ffc0c7; }
-
-.codenames .tname { font-weight: 800; }
-.codenames .tname.t0 { color: var(--t0); }
-.codenames .tname.t1 { color: var(--t1); }
-.codenames .tname.side { color: var(--accent-text); }
-.codenames .bad { color: var(--bad); }
-.codenames .team.t0 { border-color: var(--t0); }
-.codenames .team.t1 { border-color: var(--t1); }
-.codenames .team.td { border-color: var(--cn-green); }
+.codenames .td { --tc: var(--cn-green); }
 
 .codenames .cn-head .row + .row { margin-top: 6px; }
 .codenames .cn-head .row.turn { font-weight: 700; }
-.codenames .cn-head .row.turn::before { content: '▶'; color: var(--accent); font-size: 12px; }
-.codenames .cn-clue .cn-word { font-size: 30px; font-weight: 900; color: var(--accent-text); word-break: break-word; }
-.codenames .cn-n {
-  display: inline-flex; align-items: center; justify-content: center; min-width: 1.6em; padding: 0 6px; border-radius: 8px;
-  background: var(--accent); color: var(--on-accent); font-weight: 900;
-}
-.codenames .cn-give, .codenames .cn-sudden { border: 2px solid var(--accent); }
-.codenames .cn-sudden { border-color: var(--bad); }
+.codenames .cn-head .row.turn::before { content: '▶'; color: var(--accent); font-size: 12px; animation: fx-in .35s var(--ease) backwards; }
+.codenames .headline .badge { font-size: .7em; vertical-align: .15em; }
 .codenames .cn-nums .chip { min-width: 40px; justify-content: center; }
 .codenames .cn-log .row + .row { margin-top: 6px; }
 
 /* ---- board ---- */
 .codenames .cn-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
 .codenames .cn-card {
-  position: relative; min-height: 58px; padding: 4px 2px; margin: 0; border-radius: 10px;
+  position: relative; min-height: 58px; padding: 4px 2px; margin: 0; border-radius: var(--r-s);
   background: #ece3cf; color: #1d1a14; border: 2px solid transparent; font-weight: 800;
   display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: default;
 }
@@ -48,30 +27,29 @@ body[data-game=codenames] {
 }
 .codenames .cn-card .w.long { font-size: clamp(8px, 2.2vw, 11px); }
 .codenames .cn-card.can { cursor: pointer; }
-.codenames .cn-card.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+.codenames .cn-card.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); animation: fx-tick .35s var(--spring); }
 .codenames .cn-card.dead { opacity: .45; }
 
 /* the key, as only some viewers see it: a tinted face for unopened cards */
-.codenames .cn-card.k-BLUE { background: #cfe3ff; box-shadow: inset 0 -6px 0 var(--t0); }
-.codenames .cn-card.k-RED { background: #ffd6da; box-shadow: inset 0 -6px 0 var(--t1); }
+.codenames .cn-card.k-BLUE { background: #cfe3ff; box-shadow: inset 0 -6px 0 var(--team0); }
+.codenames .cn-card.k-RED { background: #ffd6da; box-shadow: inset 0 -6px 0 var(--team1); }
 .codenames .cn-card.k-GREEN { background: #d4f5df; box-shadow: inset 0 -6px 0 var(--cn-green); }
 .codenames .cn-card.k-ASSASSIN { background: #4a4a52; color: #fff; }
 .codenames .cn-card.sel.k-BLUE, .codenames .cn-card.sel.k-RED, .codenames .cn-card.sel.k-GREEN { box-shadow: 0 0 0 3px var(--accent); }
 
 /* opened cards */
 .codenames .cn-card.open { color: #fff; }
-.codenames .cn-card.c-BLUE { background: var(--t0); }
-.codenames .cn-card.c-RED { background: var(--t1); }
+.codenames .cn-card.c-BLUE { background: var(--team0); }
+.codenames .cn-card.c-RED { background: var(--team1); }
 .codenames .cn-card.c-GREEN { background: var(--cn-green); color: #062611; }
 .codenames .cn-card.c-NEUTRAL { background: #7d6f4e; color: #f3ead3; }
 .codenames .cn-card.c-ASSASSIN { background: var(--cn-assassin); border-color: var(--bad); }
 .codenames .cn-card.open .w { opacity: .85; }
+.codenames .cn-card.open.last { animation: fx-flip .45s var(--ease); }
 .codenames .cn-skull { position: absolute; font-size: 28px; opacity: .35; }
 
 /* duet: guesser view (the table) vs clue-giver view (my key) — framed differently so they can't be mixed up */
-.codenames .cn-view { display: flex; }
-.codenames .cn-view button { flex: 1; }
-.codenames .cn-board { border-radius: 14px; padding: 6px; border: 2px solid var(--line); }
+.codenames .cn-board { border-radius: var(--r); padding: 6px; border: 2px solid var(--line); transition: background-color var(--mid), border-color var(--mid); }
 .codenames .cn-board.v-key { border: 2px dashed var(--cn-green); background: #10241a; }
 .codenames .cn-card.gone { background: #262a35; color: #6f7686; box-shadow: none; }
 .codenames .cn-card.gone .w { text-decoration: line-through; }
@@ -89,10 +67,13 @@ body[data-game=codenames] {
 .codenames .cn-ptr { position: absolute; right: 2px; top: 2px; display: flex; gap: 2px; z-index: 2; }
 .codenames .cn-ptr b {
   min-width: 16px; height: 16px; border-radius: 8px; font-size: 10px; display: flex; align-items: center; justify-content: center;
-  background: #1d1a14; color: #fff;
+  background: #1d1a14; color: #fff; animation: fx-pop .35s var(--spring) backwards;
 }
 .codenames .cn-ptr b.mine { background: var(--accent); color: var(--on-accent); }
 
-@keyframes cn-flip { from { transform: rotateY(90deg); } to { transform: none; } }
-.codenames .cn-card.open.last { animation: cn-flip .45s ease-out; }
-@media (prefers-reduced-motion: reduce) { .codenames .cn-card.open.last { animation: none; } }
+/* TV: a bigger table */
+body.tv .codenames .cn-grid { gap: 8px; }
+body.tv .codenames .cn-card { min-height: 92px; }
+body.tv .codenames .cn-card .w { font-size: 22px; }
+body.tv .codenames .cn-card .w.long { font-size: 17px; }
+body.tv .codenames .cn-ptr b { min-width: 24px; height: 24px; border-radius: 12px; font-size: 14px; }

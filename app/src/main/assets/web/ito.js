@@ -1,7 +1,7 @@
 // «Сотня» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   let armed = null;       // two-tap confirmation of 'play'
@@ -27,7 +27,7 @@
     if (!t) return '';
     return `<div class="card stack center">
       <div class="muted small">${t.adult ? '🔥 ' : ''}Тема</div>
-      <div class="topic">${esc(t.q)}</div>
+      <div class="headline">${esc(t.q)}</div>
       <div class="ends"><span><b>1</b> ${esc(t.lo)}</span><span>${esc(t.hi)} <b>100</b></span></div>
     </div>`;
   }
@@ -36,19 +36,19 @@
   function strip() {
     const s = g();
     const fresh = s.table.length > animatedTable;
-    const pins = s.table.map((c, i) => `<i class="pin ${c.missed ? 'missed' : ''} ${fresh && i >= animatedTable ? 'fresh' : ''}" style="left:${c.v}%"><b>${c.v}</b></i>`).join('');
+    const pins = s.table.map((c, i) => `<i class="pin ${c.missed ? 'bad' : ''} ${fresh && i >= animatedTable ? 'drop' : ''}" style="left:${c.v}%"><b>${c.v}</b></i>`).join('');
     if (fresh) setTimeout(() => { animatedTable = s.table.length; }, 0);
-    return `<div class="strip">${pins}</div>`;
+    return `<div class="spectrum">${pins}</div>`;
   }
 
   function tableList() {
     const s = g();
     if (!s.table.length) return `<div class="card flat center muted small">Стіл порожній. Перша карта — за тим, хто вважає своє число найменшим.</div>`;
     return `<div class="card">${s.table.slice().reverse().map(c => `
-      <div class="score ${c.missed ? 'missed' : ''}">
+      <div class="li ${c.missed ? 'missed' : ''}">
         <span class="num">${c.v}</span>
         <span class="name">${esc(c.name)}${c.clue ? ` <span class="muted">— «${esc(c.clue)}»</span>` : ''}</span>
-        ${c.missed ? '<span class="small bad">пропущено</span>' : ''}
+        ${c.missed ? '<span class="small c-bad">пропущено</span>' : ''}
       </div>`).join('')}</div>`;
   }
 
@@ -59,7 +59,7 @@
     if (!cards.length) return `<div class="card flat center muted">Твої карти вже на столі. Підказуй іншим!</div>`;
     const low = cards[0];
     let h = `<h2>Твої карти</h2><div class="stack">${cards.map(c => `
-      <div class="mycard">
+      <div class="card hl mycard">
         <div class="big-num">${c.v}</div>
         <div class="grow stack">
           <input id="clue-${c.v}" type="text" data-v="${c.v}" maxlength="${s.maxClue}" placeholder="Приклад на тему для ${c.v}" value="${esc(c.clue)}" autocomplete="off">
@@ -77,7 +77,7 @@
     const others = s.players.filter(p => p.inRound && !(me() && p.id === me().id));
     if (!others.length) return '';
     return `<h2>У інших</h2><div class="card">${others.map(p => `
-      <div class="score">
+      <div class="li">
         <span class="dot ${p.connected ? '' : 'off'}"></span>
         <span class="name">${esc(p.name)}
           <span class="clues">${p.clues.map(c => `<span class="chip ${c ? '' : 'empty'}">${c ? '«' + esc(c) + '»' : '?'}</span>`).join('')}</span></span>
@@ -91,7 +91,7 @@
     const left = s.players.filter(p => p.cards && p.cards.length);
     if (!left.length) return '';
     return `<h2>Лишилось у руках</h2><div class="card">${left.map(p => `
-      <div class="score"><span class="name">${esc(p.name)}</span>
+      <div class="li"><span class="name">${esc(p.name)}</span>
         <span>${p.cards.map(c => `<span class="chip">${c.v}${c.clue ? ' · ' + esc(c.clue) : ''}</span>`).join(' ')}</span></div>`).join('')}</div>`;
   }
 
@@ -111,7 +111,7 @@
         а потім викладайте карти по одній від найменшої. Хто вважає, що в нього найменше, — кладе.
         Помилка коштує життя. На рівні N у кожного N карт (до трьох).</div></div>`;
     if (s.best) h += `<div class="card flat center">Рекорд вечора: <b>рівень ${s.best}</b></div>`;
-    if (!api.isHost) h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне</span></div>`;
+    if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне', '👑');
     h += `<h2>Гравці · ${n}</h2><div class="card chips">${s.players.map(p => `<span class="chip"><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}</span>`).join('') || '<span class="muted">Поки нікого</span>'}</div>`;
     if (api.isHost) {
       h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>Почати</button>`;
@@ -135,7 +135,7 @@
   function resultView() {
     const s = g();
     const clean = s.table.every(c => !c.missed);
-    let h = `<div class="banner good pop"><h1>Рівень ${s.level} пройдено! 🎉</h1>
+    let h = `<div class="banner good"><h1>Рівень ${s.level} пройдено! 🎉</h1>
       <div>${clean ? (s.lives < s.maxLives ? 'Без жодної помилки — +1 життя ❤️' : 'Без жодної помилки!') : 'Помилки були, але ви впорались.'}</div></div>`;
     h += header() + topicCard() + strip() + tableList();
     h += api.isHost
@@ -146,7 +146,7 @@
 
   function overView() {
     const s = g();
-    let h = `<div class="banner bad pop"><h1>Життя скінчились 💀</h1>
+    let h = `<div class="banner bad"><h1>Життя скінчились 💀</h1>
       <div>${s.level > 1 ? `Ви дійшли до рівня ${s.level}. Рекорд вечора — ${s.best || 0}.` : 'Перший рівень не здався. Ще раз?'}</div></div>`;
     h += topicCard() + strip() + revealList() + `<h2>На столі</h2>` + tableList();
     h += api.isHost

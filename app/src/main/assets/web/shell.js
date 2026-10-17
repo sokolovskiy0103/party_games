@@ -2,7 +2,8 @@
 // network switch (Wi-Fi / Internet relay). Games register themselves with PG.register().
 //
 // Pages: /host#<token> in the host app's WebView, / for players on local Wi-Fi,
-// /r/<CODE>/ for players coming through the Render relay.
+// /r/<CODE>/ for players coming through the Render relay. Either player page with ?tv is the shared TV screen:
+// it never joins and shows the game's board() — what everyone in the room may see.
 (function () {
   'use strict';
 
@@ -15,12 +16,13 @@
 
   const base = location.pathname.replace(/[^/]*$/, '');
   const isHostPage = location.pathname === '/host';
+  const isTv = !isHostPage && new URLSearchParams(location.search).has('tv');
   const token = isHostPage ? location.hash.slice(1) : '';
   // ids are per server: a relay room and the local server are different rooms
   const K = 'pg.' + (isHostPage ? 'host' : base) + '.';
 
   const games = {};
-  let pid = store.get(K + 'pid');
+  let pid = isTv ? null : store.get(K + 'pid');
   let st = null, prev = null;
   let joining = false;
   let clockOffset = 0;
@@ -44,7 +46,11 @@
   function open() {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     ws = new WebSocket(proto + location.host + base + 'ws' + (isHostPage ? '?host=' + encodeURIComponent(token) : ''));
-    ws.onopen = () => { tries = 0; status(true); if (pid) send({ t: 'resume', pid }); else { autoJoin(); render(); } };
+    ws.onopen = () => {
+      tries = 0; status(true);
+      if (isTv) send({ t: 'tv' });
+      else if (pid) send({ t: 'resume', pid }); else { autoJoin(); render(); }
+    };
     ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (_) { return; } onMessage(m); };
     ws.onclose = () => { status(false); setTimeout(open, Math.min(4000, 400 * ++tries)); };
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
@@ -64,6 +70,7 @@
   }
 
   function onMessage(m) {
+    if (isTv && m.t !== 'state') return;
     if (m.t === 'welcome') { pid = m.pid; store.set(K + 'pid', pid); joining = false; return; }
     if (m.t === 'unknown') { pid = null; store.set(K + 'pid', null); autoJoin(); render(); return; }
     if (m.t !== 'state') return;
@@ -73,7 +80,8 @@
     const switched = prev && prev.game !== st.game;
     if (switched) { showInvite = false; menuOpen = false; rulesOpen = false; bigQr = false; }
     const g = st.game && games[st.game];
-    if (g && g.onState) g.onState(prev && prev.game === st.game ? prev.g : null, st.g, api);
+    // the TV only gets a game's state when the game draws a board
+    if (g && g.onState && (!isTv || g.board)) g.onState(prev && prev.game === st.game ? prev.g : null, st.g, api);
     render();
     // a new screen starts at its top, not wherever the game list was scrolled to
     if (switched) window.scrollTo(0, 0);
@@ -110,6 +118,22 @@
     } catch (_) {}
   }
 
+  /** One short blip: the clock ticking on the TV. */
+  function beep(f) {
+    try {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      const s = audioCtx.currentTime + 0.01;
+      const o = audioCtx.createOscillator(), v = audioCtx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      v.gain.setValueAtTime(0.0001, s);
+      v.gain.exponentialRampToValueAtTime(0.2, s + 0.005);
+      v.gain.exponentialRampToValueAtTime(0.0001, s + 0.08);
+      o.connect(v); v.connect(audioCtx.destination);
+      o.start(s); o.stop(s + 0.1);
+    } catch (_) {}
+  }
+  const soundOn = () => !!(audioCtx && audioCtx.state === 'running');
+
   const api = {
     $, esc, store, buzzer,
     get st() { return st; },
@@ -117,6 +141,7 @@
     get me() { return st && st.me; },
     get isHost() { return !!(st && st.isHost); },
     get isHostPage() { return isHostPage; },
+    get isTv() { return isTv; },
     get mod() { return st && st.mods && st.game ? st.mods[st.game] : null; },
     now() { return Date.now() + clockOffset; },
     send(d) { send({ t: 'g', d }); },
@@ -126,7 +151,69 @@
     render() { render(); },
     vibrate(ms) { if (!isHostPage && navigator.vibrate) { try { navigator.vibrate(ms); } catch (_) {} } },
   };
-  window.PG = { register(id, mod) { games[id] = mod; }, api };
+  // ---------- shared components (markup for ui.css) ----------
+  const fmtClock = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  const FMT = { clock: fmtClock, sec: ms => Math.ceil(ms / 1000) + ' с' };
+  const fmtTime = (fmt, ms) => (FMT[fmt] || fmtClock)(ms);
+
+  const ui = {
+    /**
+     * A secret card the player taps to turn over; its data-act="flip" goes to the game's click().
+     * o: { open, tone: CSS colour of the open side, back: HTML of the open side, front: optional closed side }
+     */
+    flipCard(o) {
+      const front = o.front || `<div class="card-ico">🂠</div><div class="title">Твоя роль</div>
+        <div class="what">Торкнись, щоб подивитися. Сховай екран від інших.</div>`;
+      return `<div class="flip ${o.open ? 'open' : ''}" data-act="flip" style="--tone:${o.tone || 'var(--accent)'}">
+        <div class="face front">${front}</div>
+        <div class="face back">${o.back}<div class="muted small">Торкнись, щоб сховати</div></div></div>`;
+    },
+    /** Three bouncing dots: someone is busy (thinking, typing, choosing). cls: 'sm' for inside a row. */
+    typing(cls = '') { return `<span class="typing ${cls}"><i></i><i></i><i></i></span>`; },
+    /**
+     * Waiting for a person (not for loading): a card with whose move it is and a "typing…" bubble.
+     * text: HTML; who: a player's name (shows its initial) or an emoji, e.g. '👑' for the host.
+     */
+    wait(text, who) {
+      const ch = [...String(who || '').trim()][0] || '?';
+      const face = who ? `<span class="avatar ${/\p{L}|\p{N}/u.test(ch) ? '' : 'emoji'}">${esc(ch.toUpperCase())}</span>` : '';
+      return `<div class="card flat wait"><span class="who">${face}${ui.typing()}</span><span class="muted">${text}</span></div>`;
+    },
+    /**
+     * Countdown; one shared ticker keeps every one on screen current.
+     * o: { deadline, ms: shown while paused (no deadline), low: ms when it turns red, fmt: 'clock' | 'sec', pre, cls }
+     */
+    timer(o) {
+      const ms = o.deadline ? Math.max(0, o.deadline - api.now()) : (o.ms || 0);
+      const live = o.deadline ? ` data-deadline="${o.deadline}" data-low="${o.low || 0}" data-fmt="${o.fmt || 'clock'}" data-pre="${esc(o.pre || '')}"` : '';
+      return `<div class="timer ${o.cls || ''} ${ms < (o.low || 0) ? 'low' : ''}"${live}>${esc(o.pre || '')}${fmtTime(o.fmt, ms)}</div>`;
+    },
+    /** The progress bar under a countdown. o: { deadline, ms, total, low } */
+    timerBar(o) {
+      const ms = o.deadline ? Math.max(0, o.deadline - api.now()) : (o.ms || 0);
+      const live = o.deadline ? ` data-deadline="${o.deadline}" data-low="${o.low || 0}" data-total="${o.total}"` : '';
+      return `<div class="bar ${ms < (o.low || 0) ? 'low' : ''}"${live}><i style="width:${o.total ? ms / o.total * 100 : 0}%"></i></div>`;
+    },
+  };
+  api.ui = ui;
+
+  let tickSec = null;
+  setInterval(() => {
+    let sec = null;
+    document.querySelectorAll('[data-deadline]').forEach(el => {
+      const ms = Math.max(0, +el.dataset.deadline - api.now());
+      el.classList.toggle('low', ms < +el.dataset.low);
+      if (el.dataset.total) { if (el.firstElementChild) el.firstElementChild.style.width = (ms / +el.dataset.total * 100) + '%'; }
+      else {
+        el.textContent = (el.dataset.pre || '') + fmtTime(el.dataset.fmt, ms);
+        if (sec == null && ms > 0 && ms < +el.dataset.low) sec = Math.ceil(ms / 1000);
+      }
+    });
+    // the TV ticks through the last seconds of a countdown, higher for the final three
+    if (isTv && sec !== tickSec) { tickSec = sec; if (sec != null) beep(sec <= 3 ? 1320 : 990); }
+  }, 250);
+
+  window.PG = { register(id, mod) { games[id] = mod; }, api, ui };
 
   // ---------- views ----------
   function dice() {
@@ -161,7 +248,8 @@
       qr: `<img class="qr" src="${base}qr.svg?t=${encodeURIComponent(u.url)}" alt="QR">`,
       info: `<div class="url">${esc(u.url)}</div>
         <p class="muted small">${u.hotspot ? 'Гравці підключаються до точки доступу цього телефону.' : 'Гравці мають бути в тій самій Wi-Fi мережі.'}</p>
-        ${urls.length > 1 ? `<div class="muted small">Інші адреси: ${urls.slice(1).map(x => esc(x.url)).join(', ')}</div>` : ''}`,
+        ${urls.length > 1 ? `<div class="muted small">Інші адреси: ${urls.slice(1).map(x => esc(x.url)).join(', ')}</div>` : ''}
+        ${tvHint(u.url)}`,
     };
   }
 
@@ -172,7 +260,8 @@
       qr = `<img class="qr" src="${base}qr.svg?t=${encodeURIComponent(r.join)}" alt="QR">`;
       info = `<div class="code">${esc(r.code)}</div>
         <div class="url">${esc(r.join)}</div>
-        <p class="muted small">Працює з будь-якої мережі, навіть з мобільного інтернету. Або відкрий ${esc(r.url.replace(/^https?:\/\//, ''))} і введи код.</p>`;
+        <p class="muted small">Працює з будь-якої мережі, навіть з мобільного інтернету. Або відкрий ${esc(r.url.replace(/^https?:\/\//, ''))} і введи код.</p>
+        ${tvHint(r.join)}`;
     } else {
       info = `<div class="center" style="padding:12px 0"><span class="spinner"></span></div>
         <p class="muted">${esc(r.message || 'Підключаюсь…')}</p>`;
@@ -181,6 +270,13 @@
       ? `<div class="row"><input id="relayUrl" type="text" value="${esc(r.url)}" style="flex:1;font-size:14px"><button class="mini" data-pg="saveRelay">OK</button></div>`
       : `<button class="mini ghost" data-pg="editRelay">Адреса сервера</button>`;
     return { qr, info };
+  }
+
+  /** How to put the room on a TV: the player address with ?tv, and whether one is watching. */
+  function tvHint(url) {
+    if (!url) return '';
+    const cast = window.PGApp ? ' — або просто увімкни трансляцію екрана телефона (Smart View, бездротовий дисплей)' : '';
+    return `<div class="muted small">📺 На телевізор: відкрий у його браузері <span class="url">${esc(url)}?tv</span>${cast}${st.tvs ? ' · <span class="c-good">підключено ✓</span>' : ''}</div>`;
   }
 
   /** QR + network switch. Compact puts a small QR next to the text (lobby), so the game list stays near the top. */
@@ -216,18 +312,39 @@
       h += `<h2>Гравці · ${st.players.length}</h2>${playersCard()}`;
       h += `<h2>Що граємо?</h2><div class="games">${st.games.map(g => {
         const enough = st.players.length >= g.minPlayers;
-        return `<button class="game-card" data-pg="select" data-v="${g.id}">
+        return `<button class="game-card" data-pg="select" data-v="${g.id}" data-theme="${g.id}">
           <span class="emoji">${g.emoji}</span>
           <span class="grow"><b>${esc(g.title)}</b><span class="muted small">${esc(g.subtitle)}</span>
-          <span class="small ${enough ? 'muted' : 'warn'}">від ${g.minPlayers} гравців</span></span></button>`;
+          <span class="small ${enough ? 'muted' : 'c-warn'}">від ${g.minPlayers} гравців</span></span></button>`;
       }).join('')}</div>`;
     } else {
       h += `<h1>Привіт, ${esc(st.me.name)}!</h1>
-        <div class="card flat center"><span class="spinner"></span> <span class="muted">Хост обирає гру…</span></div>
+        ${ui.wait('Хост обирає гру', '👑')}
         <h2>Тут ${st.players.length}</h2>${playersCard()}
         <button class="ghost" data-pg="leave">Вийти</button>`;
     }
     return h + `</div>`;
+  }
+
+  /**
+   * The shared TV screen: a game's board() when it has one; otherwise the room — a big QR to join, who is here and
+   * what is being played. Sound needs one press of OK on the remote (browsers allow audio only after a gesture).
+   */
+  function tvView() {
+    const sound = soundOn() ? '' : '<button class="soft tv-sound" data-pg="sound">🔊 Увімкнути звук</button>';
+    const g = st.game && games[st.game];
+    if (g && g.board && st.g) return `<div class="tv-screen">${g.board(api) || ''}</div>${sound}`;
+    const qr = st.qr ? `<div class="qr tv-qr">${st.qr}</div>` : '';
+    const info = st.game ? gameInfo(st.game) : null;
+    const side = info
+      ? `<div class="hero center"><div class="tv-emoji">${info.emoji}</div><h1>${esc(info.title)}</h1>
+          <p class="muted">Граємо на телефонах 📱</p></div>`
+      : `<h1>Заходь у гру</h1><p class="muted">Скануй QR камерою телефона — і граєш просто в браузері.</p>
+          ${ui.wait('Хост обирає гру', '👑')}`;
+    return `<div class="tv-lobby">
+      <div class="stack center">${qr}<div class="url">${esc(st.join || '')}</div></div>
+      <div class="stack">${side}<h2>Гравці · ${st.players.length}</h2>${playersCard()}</div>
+    </div>${sound}`;
   }
 
   /** Side drawer (☰ or the back gesture): everything that is not part of the current screen lives here. */
@@ -300,7 +417,7 @@
   function render() {
     const g = st && st.game ? games[st.game] : null;
     const info = st && st.game ? gameInfo(st.game) : null;
-    document.body.dataset.game = (st && st.game) || '';
+    document.body.dataset.game = document.body.dataset.theme = (st && st.game) || '';
     $('#logo').innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Party Games`;
     $('#hostTag').hidden = !(st && st.isHost);
     const joined = !!(pid && st && st.me);
@@ -324,6 +441,17 @@
     if (menuOpen) keepInput($('#drawerInner'), drawerView());
 
     let html = '', bar = '';
+    if (isTv) {
+      $('#infoBtn').hidden = true;
+      if (!st) return;
+      keepInput($('#app'), tvView());
+      const screen = 'tv/' + (st.game || '') + '/' + ((st.g && st.g.phase) || '');
+      if (screen !== lastScreen) { lastScreen = screen; enterScreen(); }
+      // a TV remote has no pointer: put the focus on the sound button so OK presses it
+      const sb = $('.tv-sound');
+      if (sb && document.activeElement === document.body) sb.focus();
+      return;
+    }
     const needsJoin = !pid || !st || !st.me;
     if (needsJoin) {
       if (pid && !st) return; // waiting for state after resume
@@ -340,28 +468,89 @@
     keepInput($('#barInner'), bar);
     $('#bar').hidden = !bar;
     document.body.classList.toggle('with-bar', !!bar);
+
+    // a new screen (another game or phase) slides in; re-renders within a screen don't
+    const screen = needsJoin ? 'join' : !st.game ? 'lobby' : st.game + '/' + ((st.g && st.g.phase) || '');
+    if (screen !== lastScreen) { lastScreen = screen; enterScreen(); }
+  }
+  let lastScreen = '', enterTimer = 0;
+  function enterScreen() {
+    const app = $('#app');
+    app.classList.remove('enter');
+    void app.offsetWidth;
+    app.classList.add('enter');
+    clearTimeout(enterTimer);
+    enterTimer = setTimeout(() => app.classList.remove('enter'), 900);
   }
 
   /**
-   * Re-render without losing what the user is typing. Identical markup leaves the DOM alone, so a state push
-   * that changes nothing on this screen (someone else tapped) does not restart animations or eat a tap.
+   * Re-render by merging the new markup into the DOM instead of replacing it. Elements that are still there keep
+   * their state (focus, typed text, running animations); changed classes animate through CSS transitions; only
+   * elements that really appeared play their entrance animation. Identical markup leaves the DOM alone, so a state
+   * push that changes nothing on this screen (someone else tapped) does not eat a tap.
+   *
+   * Nodes match by position, tag and first class. Give an element data-k when its identity matters (a different
+   * key means a new element, e.g. the next character card should pop in again); an id works as a key too.
+   * data-keep leaves an element's children to the game (a canvas it mounts itself).
    */
   function keepInput(container, html) {
     if (container._pgHtml === html) return;
     container._pgHtml = html;
-    const a = document.activeElement;
+    // typed text survives even if its input had to be re-created
     const saved = {};
-    container.querySelectorAll('input[id]').forEach(i => { saved[i.id] = i.value; });
+    container.querySelectorAll('input[id]').forEach(i => { saved[i.id] = [i, i.value]; });
+    const a = document.activeElement;
     const focusId = a && a.id && a.tagName === 'INPUT' && container.contains(a) ? a.id : null;
     const sel = focusId ? [a.selectionStart, a.selectionEnd] : null;
-    container.innerHTML = html;
-    for (const id in saved) { const el = document.getElementById(id); if (el && !el.dataset.fresh) el.value = saved[id]; }
-    if (focusId) {
+    const t = document.createElement('template');
+    t.innerHTML = html;
+    patchChildren(container, t.content);
+    for (const id in saved) {
+      const el = document.getElementById(id);
+      if (el && el !== saved[id][0] && !el.dataset.fresh && el.type !== 'checkbox') el.value = saved[id][1];
+    }
+    if (focusId && document.activeElement !== saved[focusId][0]) {
       const el = document.getElementById(focusId);
       if (el) { el.focus(); try { el.setSelectionRange(sel[0], sel[1]); } catch (_) {} }
     }
   }
   PG.keepInput = keepInput;
+
+  const keyOf = n => (n.nodeType === 1 ? n.getAttribute('data-k') || n.id || '' : '');
+  const kindOf = n => (n.nodeType === 1 ? n.nodeName + '.' + ((n.getAttribute('class') || '').trim().split(/\s+/)[0]) : n.nodeName);
+  const sameNode = (a, b) => kindOf(a) === kindOf(b) && keyOf(a) === keyOf(b);
+
+  function patchChildren(live, next) {
+    let l = live.firstChild;
+    for (let n = next.firstChild, after; n; n = after) {
+      after = n.nextSibling;
+      if (l && sameNode(l, n)) { patchNode(l, n); l = l.nextSibling; continue; }
+      let m = l && l.nextSibling;
+      while (m && !sameNode(m, n)) m = m.nextSibling;
+      if (m) { live.insertBefore(m, l); patchNode(m, n); } // it moved up: the ones in between were removed or moved
+      else live.insertBefore(n, l);                        // new
+    }
+    while (l) { const x = l.nextSibling; live.removeChild(l); l = x; }
+  }
+
+  function patchNode(l, n) {
+    if (l.nodeType !== 1) {
+      if (l.nodeValue !== n.nodeValue) {
+        l.nodeValue = n.nodeValue;
+        const p = l.parentNode;
+        // a score that changed jumps
+        if (p && p.classList && p.classList.contains('pts')) { p.classList.remove('bump'); void p.offsetWidth; p.classList.add('bump'); }
+      }
+      return;
+    }
+    for (const at of [...l.attributes]) if (!n.hasAttribute(at.name)) l.removeAttribute(at.name);
+    for (const at of n.attributes) if (l.getAttribute(at.name) !== at.value) l.setAttribute(at.name, at.value);
+    if (l.tagName === 'INPUT') {
+      if (l.type === 'checkbox' || l.type === 'radio') l.checked = n.hasAttribute('checked');
+      else if (l.dataset.fresh) l.value = n.getAttribute('value') || '';
+    }
+    if (!l.hasAttribute('data-keep')) patchChildren(l, n);
+  }
 
   /**
    * Back gesture of the host app (called from MainActivity). Peels one layer: rules, drawer, a game's own screen;
@@ -420,6 +609,7 @@
       case 'join': return join();
       case 'rules': rulesOpen = !rulesOpen; if (rulesOpen) { menuOpen = false; armed = null; } return render();
       case 'menu': return setDrawer(!menuOpen);
+      case 'sound': unlockAudio(); return setTimeout(render, 150);
       case 'bigQr': bigQr = !bigQr; return render();
       case 'arm': armed = el.dataset.v; return render();
       case 'kick': {
@@ -456,7 +646,7 @@
     const el = e.target.closest('[data-pg]');
     if (el) { if (!el.disabled) shellAct(el.dataset.pg, el); return; }
     const g = st && st.game ? games[st.game] : null;
-    if (g && g.click) g.click(e, api);
+    if (g && g.click && !isTv) g.click(e, api);
   });
 
   document.addEventListener('keydown', e => {
@@ -465,8 +655,19 @@
     if (e.key === 'Enter' && e.target.id === 'name') return join();
     if (e.key === 'Enter' && e.target.id === 'relayUrl') return shellAct('saveRelay');
     const g = st && st.game ? games[st.game] : null;
-    if (g && g.key) g.key(e, api);
+    if (g && g.key && !isTv) g.key(e, api);
   });
 
-  document.addEventListener('DOMContentLoaded', () => { $('#logo').innerHTML = dice() + 'Party Games'; open(); });
+  document.addEventListener('DOMContentLoaded', () => {
+    $('#logo').innerHTML = dice() + 'Party Games';
+    if (isTv) {
+      document.body.classList.add('tv'); fitTv(); window.addEventListener('resize', fitTv);
+      // the phone's second screen allows sound without a tap; a TV browser keeps the "🔊" button
+      unlockAudio(); setTimeout(render, 500);
+    }
+    open();
+  });
+
+  // The TV page is laid out for 1280 px and scaled to the screen, so every px size grows with it.
+  function fitTv() { document.documentElement.style.zoom = Math.max(0.75, window.innerWidth / 1280).toFixed(3); }
 })();

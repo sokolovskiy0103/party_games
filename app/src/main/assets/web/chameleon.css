@@ -1,49 +1,8 @@
-/* «Хамелеон»: a green take on the shell palette, plus the word card and the clue list. */
-body[data-game=chameleon] {
+/* «Хамелеон»: green. The clue list fills in as players speak. */
+[data-theme=chameleon] {
   --accent: #7bd957;
   --on-accent: #0b1f06;
-  --accent-soft: #1d3314;
-  --accent-text: #c4f2ae;
-  --cham: #7bd957;
-  --red: #ff5d6c;
 }
 
-.chameleon .c-cham { color: var(--cham); }
-.chameleon .topic { font-size: 28px; font-weight: 900; color: var(--accent-text); letter-spacing: -.5px; }
-.chameleon .word { font-size: 34px; font-weight: 900; color: var(--accent); letter-spacing: -.5px; word-break: break-word; }
-.chameleon .word.small-word { font-size: 22px; }
-
-.chameleon .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.chameleon .wcard {
-  background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 2px;
-  font-size: 12.5px; font-weight: 700; line-height: 1.15; min-height: 44px; display: flex; align-items: center; justify-content: center;
-  text-align: center; word-break: break-word; hyphens: auto; color: var(--text);
-}
-.chameleon .wcard.mark { background: var(--accent); color: var(--on-accent); border-color: var(--accent); transition: background .3s; }
-.chameleon .wcard.dim { opacity: .45; }
-.chameleon button.wcard.pickable { padding: 10px 2px; min-height: 44px; border-radius: 10px; font-weight: 700; }
-.chameleon button.wcard.pickable:active { background: var(--accent); color: var(--on-accent); }
-
-.chameleon .role {
-  border-radius: 24px; padding: 22px 18px; text-align: center; border: 2px solid var(--line); background: var(--bg2);
-  min-height: 180px; display: flex; flex-direction: column; justify-content: center; gap: 8px; user-select: none; cursor: pointer;
-}
-.chameleon .role.hidden { border-style: dashed; }
-.chameleon .role.PLAYER { border-color: var(--cham); background: linear-gradient(160deg, #163012, #161d2e); }
-.chameleon .role.CHAM { border-color: var(--red); background: linear-gradient(160deg, #3a1822, #161d2e); }
-.chameleon .role .name { font-size: 28px; font-weight: 900; letter-spacing: -.5px; }
-.chameleon .role .what { color: var(--muted); }
-
-.chameleon .score.now { background: var(--accent-soft); border-radius: 10px; padding-left: 8px; padding-right: 8px; }
-.chameleon .score .clue { font-weight: 800; font-size: 18px; color: var(--accent-text); animation: ch-in .35s ease-out; }
-.chameleon button.pick { background: var(--bg2); color: var(--text); border: 2px solid var(--line); text-align: left; }
-.chameleon button.pick.on { border-color: var(--accent); background: var(--accent-soft); }
-.chameleon .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-@keyframes ch-in { from { transform: translateX(14px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes ch-reveal { 0% { transform: scale(.9); opacity: 0; } 60% { transform: scale(1.03); } 100% { transform: none; opacity: 1; } }
-.chameleon .reveal { animation: ch-reveal .5s .25s ease-out both; }
-
-@media (prefers-reduced-motion: reduce) {
-  .chameleon .score .clue, .chameleon .reveal { animation: none; }
-}
+.chameleon .c-cham { color: var(--accent); }
+.chameleon .li .clue { font-weight: 800; font-size: 18px; color: var(--accent-text); animation: fx-in .35s var(--ease) backwards; }

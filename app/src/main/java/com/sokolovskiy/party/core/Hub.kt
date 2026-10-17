@@ -31,6 +31,8 @@ import java.util.concurrent.ConcurrentHashMap
 class Conn(val isHost: Boolean) {
     val outbox = Channel<String>(Channel.CONFLATED)
     @Volatile var playerId: String? = null
+    /** The shared TV screen: watches, never plays. */
+    @Volatile var tv = false
 }
 
 /**
@@ -104,6 +106,13 @@ class Hub(private val context: Context) : GameEnv {
     fun handle(c: Conn, text: String) {
         val m = try { JSONObject(text) } catch (_: Exception) { return }
         val now = System.currentTimeMillis()
+        if (m.optString("t") == "tv" && !c.isHost) {
+            c.tv = true
+            c.playerId = null
+            broadcast()
+            return
+        }
+        if (c.tv) return
         synchronized(lock) {
             when (m.optString("t")) {
                 "join" -> {
@@ -156,14 +165,30 @@ class Hub(private val context: Context) : GameEnv {
     private fun sendState(c: Conn) {
         val json = try {
             synchronized(lock) {
-                val o = room.stateJson(c.playerId, c.isHost, System.currentTimeMillis())
-                if (c.isHost) o.put("net", netJson()).put("mods", modsJson())
+                val o = room.stateJson(c.playerId, c.isHost, System.currentTimeMillis(), c.tv)
+                if (c.isHost) o.put("net", netJson()).put("mods", modsJson()).put("tvs", conns.count { it.tv })
+                if (c.tv) inviteUrl()?.let { o.put("join", it).put("qr", qr(it)) }
                 o.toString()
             }
         } catch (t: Throwable) {
             Log.e(TAG, "state failed", t); return
         }
         c.outbox.trySend(json)
+    }
+
+    /**
+     * Where players join right now — what the host's invite card shows. The TV shows it as a QR: its own address may be
+     * 127.0.0.1 (the phone's second screen) or the relay, either way not what a player should scan.
+     */
+    private fun inviteUrl(): String? =
+        if (settings.relayEnabled) relay.code?.takeIf { relay.state == RelayClient.State.ONLINE }?.let { "${settings.relayUrl}/r/$it/" }
+        else NetUtil.lanAddresses().firstOrNull()?.let { "http://${it.ip}:${local.port}/" }
+
+    private var qrText: String? = null
+    private var qrSvg = ""
+    private fun qr(text: String): String {
+        if (text != qrText) { qrSvg = NetUtil.qrSvg(text); qrText = text }
+        return qrSvg
     }
 
     private fun netJson() = JSONObject()

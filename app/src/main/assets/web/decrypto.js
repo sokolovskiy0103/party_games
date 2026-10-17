@@ -1,7 +1,7 @@
 // «Шифр» UI. Rendered by the shell; game state is api.g.
 (function () {
   'use strict';
-  const { esc } = PG.api;
+  const { esc, ui } = PG.api;
 
   let api = PG.api;
   let armed = null;        // two-tap confirmations
@@ -40,7 +40,7 @@
     if (!s.words || myTeam() < 0) return '';
     return `<div class="card stack">
       <div class="row"><b>Ваші слова</b><span class="grow"></span>${teamLabel(myTeam())}</div>
-      <div class="kw">${s.words.map((w, i) => `<div class="kword"><span class="n">${i + 1}</span>${esc(w)}</div>`).join('')}</div>
+      <div class="kw">${s.words.map((w, i) => `<div class="kword"><span class="badge">${i + 1}</span>${esc(w)}</div>`).join('')}</div>
     </div>`;
   }
 
@@ -53,7 +53,7 @@
       <div class="row"><b>Дошка</b>${teamLabel(t)}</div>
       <div class="board">${tm.board.map((col, i) => `
         <div class="col">
-          <div class="col-head"><span class="n">${i + 1}</span>${words ? esc(words[i]) : '?'}</div>
+          <div class="col-head"><span class="badge sm">${i + 1}</span>${words ? esc(words[i]) : '?'}</div>
           ${col.map(c => `<div class="bclue">${esc(c.clue)}</div>`).join('') || '<div class="muted small">—</div>'}
         </div>`).join('')}</div>
     </div>`;
@@ -71,9 +71,9 @@
   function picker(target, clues, draft) {
     const locked = draft.locked;
     const rows = clues.map((c, slot) => `
-      <div class="prow">
+      <div class="li">
         <span class="pclue">${esc(c)}</span>
-        <span class="digits">${[1, 2, 3, 4].map(d => `<button class="digit ${draft.digits[slot] === d ? 'on' : ''}" data-act="digit" data-target="${target}" data-slot="${slot}" data-d="${d}" ${locked ? 'disabled' : ''}>${d}</button>`).join('')}</span>
+        <span class="digits">${[1, 2, 3, 4].map(d => `<button class="pick sq ${draft.digits[slot] === d ? 'on' : ''}" data-act="digit" data-target="${target}" data-slot="${slot}" data-d="${d}" ${locked ? 'disabled' : ''}>${d}</button>`).join('')}</span>
       </div>`).join('');
     const complete = draft.digits.every(d => d);
     const key = 'lock-' + target;
@@ -111,7 +111,7 @@
         <button class="big" data-act="start" ${s.canStart ? '' : 'disabled'}>Почати</button>`;
       if (!s.canStart) h += `<div class="muted small center">У кожній команді має бути щонайменше ${s.minPerTeam} гравці.</div>`;
     } else {
-      h += `<div class="card flat center"><span class="spinner"></span> <span class="muted">Чекаємо, поки хост почне</span></div>`;
+      h += ui.wait('Чекаємо, поки хост почне', '👑');
     }
     return h;
   }
@@ -120,13 +120,13 @@
     const s = g();
     let h = scoreHead();
     if (isEnc()) {
-      h += `<div class="card stack center enc">
+      h += `<div class="card hl stack center">
         <div class="muted small">Ти шифрувальник. Твій код</div>
         <div class="bigcode">${code(s.code)}</div>
         <div class="muted small">Напиши по підказці на кожне слово з коду, у цьому порядку. Свої мають зрозуміти, а суперники — ні. Не повторюй старі підказки з дошки.</div>
       </div>
       <div class="card stack">${s.code.map((d, i) => `
-        <div class="stack"><div class="small"><b class="n">${d}</b> ${esc(s.words[d - 1])}</div>
+        <div class="stack"><div class="small"><span class="badge sm">${d}</span> ${esc(s.words[d - 1])}</div>
           <input id="clue-${i}" type="text" maxlength="${s.maxClue}" placeholder="Підказка до «${esc(s.words[d - 1])}»" autocomplete="off"></div>`).join('')}
         ${s.teams[myTeam()].cluesDone
           ? '<div class="notice">Підказки надіслано. Чекаємо суперників.</div>'
@@ -136,7 +136,7 @@
       h += `<div class="card stack">${[0, 1].map(t => {
         const tm = s.teams[t];
         return `<div class="row">${teamLabel(t)}<span class="grow"></span>
-          ${tm.cluesDone ? '<span class="chip ok">✓ готово</span>' : `<span class="small muted"><span class="spinner"></span> ${nameOf(tm.encryptor)} шифрує</span>`}</div>`;
+          ${tm.cluesDone ? '<span class="chip ok">✓ готово</span>' : `<span class="small muted">${ui.typing('sm')} ${nameOf(tm.encryptor)} шифрує</span>`}</div>`;
       }).join('')}</div>`;
     }
     h += myWords() + boards();
@@ -153,8 +153,8 @@
       const own = s.teams[t];
       const opp = s.teams[1 - t];
       if (isEnc()) {
-        h += `<div class="card stack enc"><b>Твої підказки</b>
-          ${own.clues.map((c, i) => `<div class="prow"><span class="pclue">${esc(c)}</span><b class="n">${s.code[i]}</b></div>`).join('')}
+        h += `<div class="card hl stack"><b>Твої підказки</b>
+          ${own.clues.map((c, i) => `<div class="li"><span class="pclue">${esc(c)}</span><span class="badge">${s.code[i]}</span></div>`).join('')}
           <div class="muted small">Мовчи й не підказуй жестами — команда розгадує сама.</div>
           ${own.ownLocked ? '<div class="notice">Команда зафіксувала відповідь.</div>' : ''}</div>`;
       } else {
@@ -163,7 +163,7 @@
           ${picker('own', own.clues, s.drafts.own)}</div>`;
       }
       if (s.intercept) {
-        h += `<div class="card stack intercept"><b>Перехопіть код: ${teamLabel(1 - t)}</b>
+        h += `<div class="card dashed stack"><b>Перехопіть код: ${teamLabel(1 - t)}</b>
           <div class="muted small">Їхніх слів ви не знаєте, але бачите їхню дошку нижче.</div>
           ${picker('opp', opp.clues, s.drafts.opp)}</div>`;
       } else {
@@ -186,9 +186,9 @@
       ${r.teams.map((e, t) => `
         <div class="stack rteam">
           <div class="row">${teamLabel(t)}<span class="muted small">шифрував(ла) ${esc(e.encryptor)}</span></div>
-          ${e.clues.map((c, i) => `<div class="prow"><span class="pclue">${esc(c)}</span><b class="n">${e.code[i]}</b></div>`).join('')}
-          <div class="small">Свої: <b>${code(e.own)}</b> ${e.ok ? '<span class="good">✓ розгадали</span>' : '<span class="bad">✗ провал ⚫</span>'}</div>
-          ${e.intercept ? `<div class="small">${TEAMS[1 - t].name}: <b>${code(e.intercept)}</b> ${e.intercepted ? '<span class="good">✓ перехопили ⚪</span>' : '<span class="muted">не вгадали</span>'}</div>` : ''}
+          ${e.clues.map((c, i) => `<div class="li"><span class="pclue">${esc(c)}</span><span class="badge">${e.code[i]}</span></div>`).join('')}
+          <div class="small">Свої: <b>${code(e.own)}</b> ${e.ok ? '<b class="c-good">✓ розгадали</b>' : '<b class="c-bad">✗ провал ⚫</b>'}</div>
+          ${e.intercept ? `<div class="small">${TEAMS[1 - t].name}: <b>${code(e.intercept)}</b> ${e.intercepted ? '<b class="c-good">✓ перехопили ⚪</b>' : '<span class="muted">не вгадали</span>'}</div>` : ''}
         </div>`).join('')}
     </div>`;
   }
@@ -213,10 +213,10 @@
     else if (myTeam() < 0) { verdict = `Перемогли ${TEAMS[w].name.toLowerCase()}`; cls = 'meh'; }
     else if (w === myTeam()) { verdict = 'Перемога! 🎉'; cls = 'good'; }
     else { verdict = 'Поразка'; cls = 'bad'; }
-    let h = `<div class="banner ${cls} pop"><h1>${verdict}</h1>${w >= 0 ? `<div>${teamLabel(w)}</div>` : ''}</div>`;
+    let h = `<div class="banner ${cls}"><h1>${verdict}</h1>${w >= 0 ? `<div>${teamLabel(w)}</div>` : ''}</div>`;
     h += scoreHead();
     h += [0, 1].map(t => `<div class="card stack">${teamLabel(t)}
-      <div class="kw">${(s.teams[t].words || []).map((x, i) => `<div class="kword"><span class="n">${i + 1}</span>${esc(x)}</div>`).join('')}</div></div>`).join('');
+      <div class="kw">${(s.teams[t].words || []).map((x, i) => `<div class="kword"><span class="badge">${i + 1}</span>${esc(x)}</div>`).join('')}</div></div>`).join('');
     h += boards();
     h += s.log.slice().reverse().map(roundCard).join('');
     h += api.isHost
@@ -239,7 +239,7 @@
         case 'OVER': h = overView(); break;
         default: h = '';
       }
-      return `<div class="decrypto stack ${myTeam() >= 0 ? 't' + myTeam() : ''}">${h}</div>`;
+      return `<div class="decrypto stack ${myTeam() >= 0 ? 'tint t' + myTeam() : ''}">${h}</div>`;
     },
 
     onState(prev, next, a) {

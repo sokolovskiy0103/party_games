@@ -72,6 +72,9 @@ class HatModule : GameModule {
             return game.stateJson(pid, isHost, now)
         }
 
+        // a viewer who is nobody sees exactly the public part
+        override fun board(now: Long): JSONObject = state(null, false, now)
+
         override fun tick(now: Long) = game.tick(now)
     }
 }

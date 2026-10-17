@@ -79,11 +79,13 @@ class Room(val modules: List<GameModule>) {
 
     // ---------- state ----------
 
-    fun stateJson(pid: String?, isHost: Boolean, now: Long): JSONObject {
+    /** [tv]: the shared screen — never a player or host, gets [GameSession.board] instead of a player's view. */
+    fun stateJson(pid: String?, isHost: Boolean, now: Long, tv: Boolean = false): JSONObject {
         val o = JSONObject()
         o.put("t", "state")
         o.put("now", now)
-        o.put("isHost", isHost)
+        o.put("isHost", isHost && !tv)
+        if (tv) o.put("tv", true)
         o.put("game", gameId ?: JSONObject.NULL)
         o.put("players", JSONArray(players.values.sortedBy { it.joinOrder }.map {
             JSONObject().put("id", it.id).put("name", it.name).put("connected", it.connected)
@@ -92,6 +94,11 @@ class Room(val modules: List<GameModule>) {
             JSONObject().put("id", it.id).put("title", it.title).put("subtitle", it.subtitle)
                 .put("minPlayers", it.minPlayers).put("emoji", it.emoji)
         }))
+        if (tv) {
+            o.put("me", JSONObject.NULL)
+            session?.board(now)?.let { o.put("g", it) }
+            return o
+        }
         val me = pid?.let { players[it] }
         o.put("me", if (me != null) JSONObject().put("id", me.id).put("name", me.name) else JSONObject.NULL)
         session?.let { o.put("g", it.state(me?.id, isHost, now)) }
