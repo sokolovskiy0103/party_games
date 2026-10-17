@@ -47,7 +47,7 @@
       <rect class="plate ${known ? 'k-' + w.k : ''}" x="2" y="70" width="24" height="20" rx="4"/>
       <text class="plate-t" x="14" y="${(w.v || '').length > 2 ? 84 : 85}">${esc(face)}</text></svg>`;
     const cls = ['wire', known ? 'k-' + w.k : 'unknown', w.c ? 'cut' : '', w.i && !w.c ? 'info' : '',
-      o.sel ? 'sel' : '', o.last ? 'last' : '', o.pick || o.show ? 'pick' : ''].filter(Boolean).join(' ');
+      o.sel ? 'sel' : '', o.last ? 'last' : '', o.pick || o.show ? 'tap' : ''].filter(Boolean).join(' ');
     const attrs = o.pick ? ` data-act="pick" data-to="${esc(o.to)}" data-i="${idx}"` : o.show ? ` data-act="show" data-i="${idx}"` : '';
     return `<span class="${cls}"${attrs}>${svg}<i>${idx + 1}</i></span>`;
   }

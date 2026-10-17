@@ -58,9 +58,9 @@
 .bomb .wire .token { fill: #ffe9a8; stroke: #8a6400; stroke-width: 1.2; }
 .bomb .wire .token-t { fill: #2a1a00; font-size: 9px; font-weight: 900; text-anchor: middle; font-family: inherit; }
 .bomb .wire.cut .plate-t { opacity: .55; }
-.bomb .wire.pick { cursor: pointer; }
-.bomb .wire.pick .term { fill: #ffcf6b; stroke: #a87000; }
-.bomb .wire.pick:active { transform: scale(.92); }
+.bomb .wire.tap { cursor: pointer; }
+.bomb .wire.tap .term { fill: #ffcf6b; stroke: #a87000; }
+.bomb .wire.tap:active { transform: scale(.92); }
 .bomb .wire.sel { transform: translateY(-5px); transition: transform .3s var(--spring); }
 .bomb .wire.sel svg { filter: drop-shadow(0 0 4px var(--accent)) drop-shadow(0 0 2px var(--accent)); }
 .bomb .wire.sel i { color: var(--accent); font-weight: 800; }
