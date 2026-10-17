@@ -120,7 +120,7 @@ button:active:not(:disabled) { transform: scale(.96); }
 button:disabled { opacity: .4; cursor: default; }
 button:focus-visible { outline: 3px solid var(--accent-line); outline-offset: 2px; }
 button.soft { background: var(--bg2); color: var(--text); border: 1px solid var(--line); }
-button.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+button.ghost { background: color-mix(in srgb, #000 45%, transparent); color: var(--text); border: 1px solid var(--line); }
 button.good { background: var(--good); color: #062018; }
 button.bad { background: var(--bad); color: #fff; }
 button.good.on, button.bad.on { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--text); }
