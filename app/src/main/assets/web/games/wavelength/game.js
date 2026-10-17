@@ -76,6 +76,63 @@
     </div>`;
   }
 
+  // ---------- how a classic game ends (3+ players) ----------
+  const goal = () => (g() && g().goal) || { mode: 'endless' };
+  const circlesWord = n => (n % 10 === 1 && n % 100 !== 11) ? 'коло'
+    : ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) ? 'кола' : 'кіл';
+
+  function goalText() {
+    const gl = goal();
+    if (gl.mode === 'points') return `Граємо до ${gl.points} очок`;
+    if (gl.mode === 'circles') return `Граємо ${gl.circles} ${circlesWord(gl.circles)} екстрасенсів`;
+    return 'Без кінця — гра триває, доки хост не почне нову';
+  }
+
+  /** Where the game stands relative to its goal; empty when there is no goal. */
+  function goalLine() {
+    const gl = goal();
+    if (gl.over) return '';
+    if (gl.tieBreak) return 'Нічия на вершині — граємо додатковий раунд';
+    if (gl.mode === 'points') {
+      const top = [...g().players].sort((a, b) => b.score - a.score)[0];
+      return top && top.score > 0 ? `До ${gl.points} очок · лідер ${esc(top.name)} — ${top.score}` : `Граємо до ${gl.points} очок`;
+    }
+    if (gl.mode === 'circles') return `Зіграно ${Math.min(gl.rounds, gl.roundsTotal)} з ${gl.roundsTotal} раундів`;
+    return '';
+  }
+
+  function goalCard() {
+    const gl = goal();
+    const chips = (act, vals, cur, label) => vals.map(v =>
+      `<button class="chip ${cur === v ? 'on' : ''}" data-act="${act}" data-v="${v}">${label(v)}</button>`).join('');
+    let h = `<div class="card stack">
+      <b>Як закінчується гра</b>
+      <div class="seg">
+        <button class="${gl.mode === 'points' ? 'on' : ''}" data-act="goal" data-v="points">🎯 До очок</button>
+        <button class="${gl.mode === 'circles' ? 'on' : ''}" data-act="goal" data-v="circles">🔁 Кола</button>
+        <button class="${gl.mode === 'endless' ? 'on' : ''}" data-act="goal" data-v="endless">♾️ Без кінця</button>
+      </div>`;
+    if (gl.mode === 'points') {
+      h += `<div class="chips">${chips('goalPoints', [10, 15, 20, 30, 40], gl.points, v => v)}</div>
+        <div class="muted small">Виграє той, хто першим набере ${gl.points} очок. Якщо на вершині нічия — граємо додаткові раунди.</div>`;
+    } else if (gl.mode === 'circles') {
+      h += `<div class="chips">${chips('goalCircles', [1, 2, 3, 5], gl.circles, v => `${v} ${circlesWord(v)}`)}</div>
+        <div class="muted small">Коло — це раунди, поки кожен по разу побуває екстрасенсом. Виграє той, хто після цього має найбільше очок.</div>`;
+    } else {
+      h += `<div class="muted small">Гра не закінчується сама — хост завершує її через меню «Нова гра».</div>`;
+    }
+    return h + '</div>';
+  }
+
+  function winnerBanner() {
+    const gl = goal();
+    if (!gl.over || !(gl.winners || []).length) return '';
+    const names = gl.winners.map(nameOf).join(', ');
+    const best = ((g().players.find(p => p.id === gl.winners[0]) || {}).score) || 0;
+    return `<div class="banner good"><div class="muted small">Гру завершено · ${gl.rounds} ${gl.rounds === 1 ? 'раунд' : 'раундів'}</div>
+      <h1>🏆 ${names}</h1><div><b>${best}</b> очок</div></div>`;
+  }
+
   // ---------- co-op (two players) ----------
   const series = () => g().series || null;
   /** The round on screen is a co-op one. */
@@ -125,11 +182,15 @@
       <div class="muted small">Екстрасенс бачить, де на шкалі між двома поняттями прихована ціль, і дає підказку. Решта ставить маркер там, де, на їхню думку, ціль. Що ближче — то більше очок.</div>
       <div class="muted small">Удвох гра сама вмикає кооперативний режим.</div>
     </div>`;
+    if (!s.coop) {
+      if (api.isHost) h += goalCard();
+      else h += `<div class="card flat center muted small">${goalText()}</div>`;
+    }
     if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне раунд', '👑');
     h += `<h2>Гравці · ${n}</h2>${s.coop ? teamCard() : scoreboard()}`;
     if (api.isHost) {
       const cont = s.coop ? inCoop() && series().played > 0 && !series().over : s.round;
-      h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>${cont ? 'Наступний раунд' : 'Почати гру'}</button>`;
+      h += `<button class="big" data-act="start" ${enough ? '' : 'disabled'}>${cont ? (!s.coop && goal().over ? 'Нова гра' : 'Наступний раунд') : 'Почати гру'}</button>`;
       if (!enough) h += `<div class="muted small center">Потрібно щонайменше ${s.minPlayers} гравці (зараз ${n}).</div>`;
     }
     return h;
@@ -141,6 +202,7 @@
     const se = series();
     const num = inCoop() ? `Раунд ${se.played + 1} з ${se.played + se.left}` : `Раунд ${s.round}`;
     let h = `<div class="muted center">${num} · екстрасенс — <b class="c-psy">${nameOf(s.psychic)}</b>${inCoop() ? ` · рахунок <b>${se.score}</b>` : ''}</div>`;
+    if (!inCoop() && goalLine()) h += `<div class="muted small center">${goalLine()}</div>`;
     if (isPsychic()) {
       h += `<div class="center"><span class="tag">ти екстрасенс</span></div>
         ${scale({ target: s.target })}
@@ -252,10 +314,13 @@
       <div class="card">${rows || '<div class="muted">Ніхто не поставив маркер</div>'}
         <div class="li"><span class="name">${nameOf(s.psychic)} <span class="small c-psy">екстрасенс</span></span><span class="plus">+${r.points[s.psychic] || 0}</span></div>
       </div>
+      ${winnerBanner()}
+      ${goalLine() ? `<div class="notice">${goalLine()}</div>` : ''}
       <h2>Рахунок</h2>${scoreboard()}
       <div class="muted small">Очки за відстань: ${(s.zones || []).map(([d, p]) => `±${d}% — ${p}`).join(', ')}. Екстрасенс отримує середнє від очок решти.</div>`;
-    if (api.isHost) h += `<button class="big" data-act="next" ${s.players.length >= s.minPlayers ? '' : 'disabled'}>Наступний раунд</button>`;
-    else h += `<div class="muted center small">Хост запустить наступний раунд.</div>`;
+    const over = goal().over;
+    if (api.isHost) h += `<button class="big" data-act="next" ${s.players.length >= s.minPlayers ? '' : 'disabled'}>${over ? 'Нова гра' : 'Наступний раунд'}</button>`;
+    else h += `<div class="muted center small">Хост запустить ${over ? 'нову гру' : 'наступний раунд'}.</div>`;
     return h;
   }
 
@@ -288,7 +353,10 @@
         if (prev && next.phase !== 'LOBBY') a.vibrate(120);
         if (prev && prev.phase !== next.phase) {
           if (next.phase === 'GUESS') a.sfx('dial');
-          if (next.phase === 'RESULT') { a.sfx('target'); if (next.series && next.series.over) a.sfx('win', 1500); }
+          if (next.phase === 'RESULT') {
+            a.sfx('target');
+            if ((next.series && next.series.over) || (next.goal && next.goal.over)) a.sfx('win', 1500);
+          }
         }
       }
     },
@@ -310,6 +378,9 @@
         }
         case 'lock': return a.send({ t: 'lock', v: myVal });
         case 'reveal': return a.send({ t: 'reveal' });
+        case 'goal': return a.send({ t: 'settings', goal: el.dataset.v });
+        case 'goalPoints': return a.send({ t: 'settings', goalPoints: +el.dataset.v });
+        case 'goalCircles': return a.send({ t: 'settings', goalCircles: +el.dataset.v });
       }
     },
 

@@ -138,6 +138,114 @@ class GameTest {
         assertEquals(3, seen.size)
     }
 
+    // ---------- how a game ends (three or more players) ----------
+
+    private fun missFor(t: Int) = if (t < 50) 100 else 0
+
+    /** One classic round: [hitters] land on the target, every other guesser is far off. */
+    private fun classicRound(g: Game, hitters: Set<String>) {
+        assertTrue(g.startRound())
+        g.submitClue("x")
+        val t = g.target
+        g.guessers().forEach { g.lock(it, if (it in hitters) t else missFor(t)) }
+        assertEquals(Game.Phase.RESULT, g.phase)
+    }
+
+    @Test fun endlessIsTheDefaultAndNeverEnds() {
+        val (g, ids) = game(3)
+        assertEquals(Game.Goal.ENDLESS, g.goal)
+        repeat(12) { classicRound(g, ids.toSet()) }
+        assertFalse(g.over)
+        assertFalse(g.tieBreak)
+        assertTrue(g.players.values.all { it.score == 48 })
+    }
+
+    @Test fun pointsGoalEndsWhenSomeoneLeads() {
+        val (g, ids) = game(3)
+        assertTrue(g.configureGoal(Game.Goal.POINTS, points = 5))
+        classicRound(g, setOf(ids[1])) // psychic p1: p1 2, p2 4, p3 0
+        assertFalse(g.over)
+        classicRound(g, setOf(ids[2])) // psychic p2: p1 2, p2 6, p3 4
+        assertTrue(g.over)
+        assertEquals(listOf(ids[1]), g.winners)
+        val goal = g.stateJson(ids[0], false, 0).getJSONObject("goal")
+        assertTrue(goal.getBoolean("over"))
+        assertEquals(ids[1], goal.getJSONArray("winners").getString(0))
+    }
+
+    @Test fun belowTheLimitTheGameGoesOn() {
+        val (g, ids) = game(3)
+        g.configureGoal(Game.Goal.POINTS, points = 10)
+        classicRound(g, setOf(ids[1]))
+        assertFalse(g.over)
+        assertFalse(g.tieBreak)
+        assertTrue(g.winners.isEmpty())
+    }
+
+    @Test fun sharedTopScoreAtTheLimitPlaysAnExtraRound() {
+        val (g, ids) = game(3)
+        g.configureGoal(Game.Goal.POINTS, points = 5)
+        classicRound(g, ids.toSet()) // everybody 4 — below the limit
+        assertFalse(g.tieBreak)
+        classicRound(g, ids.toSet()) // everybody 8 — a three-way tie past the limit
+        assertFalse(g.over)
+        assertTrue(g.tieBreak)
+        assertTrue(g.stateJson(ids[0], false, 0).getJSONObject("goal").getBoolean("tieBreak"))
+        classicRound(g, setOf(ids[0])) // psychic p3: p1 12, p2 8, p3 10
+        assertTrue(g.over)
+        assertFalse(g.tieBreak)
+        assertEquals(listOf(ids[0]), g.winners)
+    }
+
+    @Test fun circlesGoalEndsAfterEveryoneWasPsychic() {
+        val (g, ids) = game(3)
+        g.configureGoal(Game.Goal.CIRCLES, circles = 1)
+        classicRound(g, setOf(ids[1])) // psychic p1: p1 2, p2 4, p3 0
+        classicRound(g, setOf(ids[0])) // psychic p2: p1 6, p2 6, p3 0
+        assertFalse(g.over)
+        assertFalse(g.tieBreak) // two rounds of three: the circle isn't done yet
+        classicRound(g, setOf(ids[0])) // psychic p3: p1 10, p2 6, p3 2
+        assertEquals(3, g.finishedRounds)
+        assertTrue(g.over)
+        assertEquals(listOf(ids[0]), g.winners)
+    }
+
+    @Test fun startingAfterTheEndBeginsAFreshGame() {
+        val (g, ids) = game(3)
+        g.configureGoal(Game.Goal.POINTS, points = 5)
+        classicRound(g, setOf(ids[1]))
+        classicRound(g, setOf(ids[2]))
+        assertTrue(g.over)
+        assertTrue(g.startRound())
+        assertFalse(g.over)
+        assertEquals(1, g.round)
+        assertEquals(0, g.finishedRounds)
+        assertEquals(ids[0], g.psychicId)
+        assertTrue(g.players.values.all { it.score == 0 })
+        assertEquals(Game.Goal.POINTS, g.goal) // the host's choice stays
+        assertEquals(5, g.goalPoints)
+    }
+
+    @Test fun goalSettingsAreClampedAndOnlyChangeInTheLobby() {
+        val (g, _) = game(3)
+        g.configureGoal(Game.Goal.POINTS, points = 1000, circles = 0)
+        assertEquals(Game.MAX_GOAL_POINTS, g.goalPoints)
+        assertEquals(Game.MIN_GOAL_CIRCLES, g.goalCircles)
+        g.configureGoal(points = 1)
+        assertEquals(Game.MIN_GOAL_POINTS, g.goalPoints)
+        g.startRound()
+        assertFalse(g.configureGoal(Game.Goal.ENDLESS))
+        assertEquals(Game.Goal.POINTS, g.goal)
+    }
+
+    @Test fun coopIgnoresTheGoal() {
+        val (g, _) = game(2)
+        g.configureGoal(Game.Goal.POINTS, points = 5)
+        coopRound(g, 0)
+        assertFalse(g.over)
+        assertEquals(0, g.finishedRounds)
+    }
+
     // ---------- co-op (two players) ----------
 
     /** Plays one co-op round with the guesser landing [offset] away from the target (towards the far edge). */

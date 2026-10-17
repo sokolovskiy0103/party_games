@@ -16,12 +16,19 @@ import kotlin.random.Random
  *
  * With exactly two players a round is played co-op instead (decided on every round start): the two take turns as
  * Psychic and score together. A series has [COOP_ROUNDS] rounds; a bullseye earns a bonus round.
+ *
+ * With three or more players the host picks how a game ends ([Goal]): never, when somebody reaches [goalPoints],
+ * or after [goalCircles] full circles of the Psychic role. If the top score is shared once the goal is reached,
+ * extra rounds are played until one player leads.
  */
 class Game(
     private val spectra: SpectrumBank,
     private val random: Random = Random.Default,
 ) {
     enum class Phase { LOBBY, CLUE, GUESS, RESULT }
+
+    /** How a classic (3+ players) game ends. */
+    enum class Goal { ENDLESS, POINTS, CIRCLES }
 
     class Player(val id: String, var name: String, val joinOrder: Int) {
         var score = 0
@@ -61,6 +68,19 @@ class Game(
     var coopBonus = false; private set
     val coopOver get() = coop && coopLeft <= 0
 
+    // ---- end of a classic game (three or more players) ----
+    var goal = Goal.ENDLESS; private set
+    var goalPoints = DEFAULT_GOAL_POINTS; private set
+    var goalCircles = DEFAULT_GOAL_CIRCLES; private set
+    /** Classic rounds revealed in the current game. */
+    var finishedRounds = 0; private set
+    /** The goal is reached and one player leads: the game is decided and [winners] is set. */
+    var over = false; private set
+    /** The goal is reached but the top score is shared: another round decides it. */
+    var tieBreak = false; private set
+    private var winnerIds: List<String> = emptyList()
+    val winners: List<String> get() = winnerIds.filter { it in players }
+
     private var psychicCursor = -1
     private var nextOrder = 0
 
@@ -91,6 +111,7 @@ class Game(
     fun startRound(): Boolean {
         if (phase != Phase.LOBBY && phase != Phase.RESULT) return false
         if (!canStart()) return false
+        if (over) newGame() // the previous game was decided: a fresh one starts from zero
         val order = players.values.sortedBy { it.joinOrder }.map { it.id }
         val wantCoop = order.size == COOP_PLAYERS
         if (wantCoop && (!coop || coopOver)) {
@@ -155,9 +176,34 @@ class Game(
             if (!coopBonus) coopLeft--
         } else {
             for ((id, n) in pts) players[id]?.let { it.score += n }
+            finishedRounds++
+            checkGoal()
         }
         result = Result(target, LinkedHashMap(guesses), pts)
         phase = Phase.RESULT
+        return true
+    }
+
+    /** Decides, after a classic round, whether the game is over. A shared top score forces another round. */
+    private fun checkGoal() {
+        over = false; tieBreak = false; winnerIds = emptyList()
+        val top = players.values.maxOfOrNull { it.score } ?: return
+        val reached = when (goal) {
+            Goal.ENDLESS -> false
+            Goal.POINTS -> top >= goalPoints
+            Goal.CIRCLES -> finishedRounds >= goalCircles * inRound.size.coerceAtLeast(1)
+        }
+        if (!reached) return
+        val leaders = players.values.filter { it.score == top }.map { it.id }
+        if (leaders.size == 1) { over = true; winnerIds = leaders } else tieBreak = true
+    }
+
+    /** Host settings for how the game ends. Only between games or after a cancelled round (the lobby). */
+    fun configureGoal(mode: Goal? = null, points: Int? = null, circles: Int? = null): Boolean {
+        if (phase != Phase.LOBBY) return false
+        mode?.let { goal = it }
+        points?.let { goalPoints = it.coerceIn(MIN_GOAL_POINTS, MAX_GOAL_POINTS) }
+        circles?.let { goalCircles = it.coerceIn(MIN_GOAL_CIRCLES, MAX_GOAL_CIRCLES) }
         return true
     }
 
@@ -180,6 +226,7 @@ class Game(
         psychicCursor = -1
         players.values.forEach { it.score = 0 }
         coop = false; coopScore = 0; coopLeft = 0; coopPlayed = 0; coopBonus = false
+        finishedRounds = 0; over = false; tieBreak = false; winnerIds = emptyList()
         spectra.reset()
     }
 
@@ -198,6 +245,13 @@ class Game(
             .put("active", coop)
             .put("score", coopScore).put("left", coopLeft).put("played", coopPlayed)
             .put("total", COOP_ROUNDS).put("bonus", coopBonus).put("over", coopOver))
+        o.put("goal", JSONObject()
+            .put("mode", goal.name.lowercase())
+            .put("points", goalPoints).put("circles", goalCircles)
+            .put("rounds", finishedRounds)
+            .put("roundsTotal", goalCircles * (if (inRound.isNotEmpty()) inRound.size else players.size))
+            .put("over", over).put("tieBreak", tieBreak)
+            .put("winners", JSONArray(winners)))
         o.put("isHost", isHost)
         o.put("psychic", psychicId ?: JSONObject.NULL)
         o.put("zones", JSONArray(ZONES.map { JSONArray(listOf(it.first, it.second)) }))
@@ -239,6 +293,13 @@ class Game(
         const val MAX_CLUE = 60
         const val TARGET_MIN = 5
         const val TARGET_MAX = 95
+
+        const val DEFAULT_GOAL_POINTS = 20
+        const val MIN_GOAL_POINTS = 5
+        const val MAX_GOAL_POINTS = 100
+        const val DEFAULT_GOAL_CIRCLES = 2
+        const val MIN_GOAL_CIRCLES = 1
+        const val MAX_GOAL_CIRCLES = 10
 
         /** (max distance in percent, points) — the first zone that fits wins. */
         val ZONES = listOf(3 to 4, 8 to 3, 14 to 2, 22 to 1)

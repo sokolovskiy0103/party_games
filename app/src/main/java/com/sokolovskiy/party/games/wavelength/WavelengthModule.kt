@@ -36,6 +36,11 @@ class WavelengthModule : GameModule {
             if (isHost) when (msg.optString("t")) {
                 "start", "next" -> game.startRound()
                 "reveal" -> game.reveal()
+                "settings" -> game.configureGoal(
+                    mode = if (msg.has("goal")) Game.Goal.values().firstOrNull { it.name.equals(msg.optString("goal"), true) } else null,
+                    points = if (msg.has("goalPoints")) msg.optInt("goalPoints") else null,
+                    circles = if (msg.has("goalCircles")) msg.optInt("goalCircles") else null,
+                )
                 "abort" -> game.abortRound()
                 "newGame" -> game.newGame()
             }
