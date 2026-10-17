@@ -49,8 +49,18 @@ class DecryptoModule : GameModule {
         }
 
         override fun state(pid: String?, isHost: Boolean, now: Long): JSONObject {
-            for (p in env.room.players.values) game.players[p.id]?.connected = p.connected
+            sync()
             return game.stateJson(pid, isHost, now)
+        }
+
+        /** Public view for the TV: no viewer, so no secret words and no codes until a round is revealed. */
+        override fun board(now: Long): JSONObject {
+            sync()
+            return game.stateJson(null, false, now)
+        }
+
+        private fun sync() {
+            for (p in env.room.players.values) game.players[p.id]?.connected = p.connected
         }
     }
 }

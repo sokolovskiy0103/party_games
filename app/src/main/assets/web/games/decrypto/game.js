@@ -187,8 +187,8 @@
         <div class="stack rteam">
           <div class="row">${teamLabel(t)}<span class="muted small">шифрував(ла) ${esc(e.encryptor)}</span></div>
           ${e.clues.map((c, i) => `<div class="li"><span class="pclue">${esc(c)}</span><span class="badge">${e.code[i]}</span></div>`).join('')}
-          <div class="small">Свої: <b>${code(e.own)}</b> ${e.ok ? '<b class="c-good">✓ розгадали</b>' : '<b class="c-bad">✗ провал ⚫</b>'}</div>
-          ${e.intercept ? `<div class="small">${TEAMS[1 - t].name}: <b>${code(e.intercept)}</b> ${e.intercepted ? '<b class="c-good">✓ перехопили ⚪</b>' : '<span class="muted">не вгадали</span>'}</div>` : ''}
+          <div class="small fx-rise" style="--d:.35s">Свої: <b>${code(e.own)}</b> ${e.ok ? '<b class="c-good">✓ розгадали</b>' : '<b class="c-bad">✗ провал ⚫</b>'}</div>
+          ${e.intercept ? `<div class="small fx-rise" style="--d:.7s">${TEAMS[1 - t].name}: <b>${code(e.intercept)}</b> ${e.intercepted ? '<b class="c-good">✓ перехопили ⚪</b>' : '<span class="muted">не вгадали</span>'}</div>` : ''}
         </div>`).join('')}
     </div>`;
   }
@@ -225,10 +225,57 @@
     return h;
   }
 
+  // ---------- TV ----------
+  /** Clue boards for the TV. Keywords are secret until the game ends, so the columns are numbers until then. */
+  function tvBoards() {
+    const s = g();
+    return `<div class="card stack">${[0, 1].map(t => {
+      const words = s.teams[t].words;
+      return `<div class="stack">
+        <div class="row">${teamLabel(t)}<span class="grow"></span>${tokens(t)}</div>
+        <div class="board">${s.teams[t].board.map((col, i) => `
+          <div class="col">
+            <div class="col-head"><span class="badge sm">${i + 1}</span>${words ? esc(words[i]) : ''}</div>
+            ${col.map(c => `<div class="bclue">${esc(c.clue)}</div>`).join('') || '<div class="muted small">—</div>'}
+          </div>`).join('')}</div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
+  function tvStage() {
+    const s = g();
+    const rnd = `Раунд ${s.round} з ${s.maxRounds}`;
+    switch (s.phase) {
+      case 'CLUES': return `<div class="banner"><span class="emoji">🔐</span><h1>Шифрувальники шифрують</h1><div>${rnd}</div></div>
+        <div class="card stack">${[0, 1].map(t => {
+          const tm = s.teams[t];
+          return `<div class="row">${teamLabel(t)}<span class="grow"></span>
+            ${tm.cluesDone ? '<span class="chip ok">✓ готово</span>' : `<span class="small muted">${ui.typing('sm')} ${nameOf(tm.encryptor)} шифрує</span>`}</div>`;
+        }).join('')}</div>`;
+      case 'GUESS': return `<div class="banner"><span class="emoji">🕵️</span><h1>Розгадування</h1><div>${rnd}</div></div>
+        <div class="card stack">${[0, 1].map(t => `<div class="stack"><div>${teamLabel(t)}</div>
+          <div class="chips">${s.teams[t].clues.map(c => `<span class="chip">${esc(c)}</span>`).join('')}</div></div>`).join('')}
+          <div class="muted">Свої розгадують код, суперники намагаються його перехопити.</div></div>`;
+      case 'REVEAL': {
+        const r = s.log[s.log.length - 1];
+        return `<div class="banner"><span class="emoji">📡</span><h1>Раунд ${s.round}: підсумки</h1></div>${r ? roundCard(r) : ''}`;
+      }
+      case 'OVER': {
+        const w = s.winner;
+        const verdict = w === -1 ? 'Нічия' : `Перемогли ${TEAMS[w].name.toLowerCase()}`;
+        return `<div class="banner ${w === -1 ? 'meh' : 'good'}"><span class="emoji">${w === -1 ? '🤝' : '🏆'}</span><h1>${verdict}</h1></div>
+          ${[0, 1].map(t => `<div class="card stack">${teamLabel(t)}
+            <div class="kw">${(s.teams[t].words || []).map((x, i) => `<div class="kword"><span class="badge">${i + 1}</span>${esc(x)}</div>`).join('')}</div></div>`).join('')}`;
+      }
+      default: return '';
+    }
+  }
+
   PG.register('decrypto', {
     // background music per phase (shell.js): encryptors think in silence; teams talk over the guesses
-    music: { GUESS: 'low', REVEAL: 'low', OVER: 'low' },
+    music: { CLUES: 'off', GUESS: 'low', REVEAL: 'low', OVER: 'low' },
     musicLoop: 81.6,  // seconds of music.mp3 that loop: a whole number of bars
+    bg: 'loop',  // games/decrypto/bg.webm|mp4 (phone), bg-tv.* (TV); bg.webp is the poster
     sfx: ['radio'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
@@ -246,13 +293,27 @@
       return `<div class="decrypto stack ${myTeam() >= 0 ? 'tint t' + myTeam() : ''}">${h}</div>`;
     },
 
+    /** TV: the public picture of the room (clue boards, phase stage), null in the lobby → the room screen. */
+    board(a) {
+      api = a;
+      const s = g();
+      if (!s || s.phase === 'LOBBY') return null;
+      return `<div class="decrypto"><div class="tv-split"><div class="stack">${tvStage()}</div>
+        <div class="stack">${scoreHead()}${tvBoards()}</div></div></div>`;
+    },
+
     onState(prev, next, a) {
       api = a;
       if (!next) return;
       if (prev && prev.phase !== next.phase) {
         armed = null; a.vibrate(120);
         if (next.phase === 'GUESS') a.sfx('radio');
-        if (next.phase === 'REVEAL') a.sfx('reveal');
+        if (next.phase === 'REVEAL') {
+          a.sfx('reveal');
+          const r = next.log[next.log.length - 1];
+          if (r && r.teams.some(e => e.intercepted)) a.sfx('correct', 900);
+          if (r && r.teams.some(e => !e.ok)) a.sfx('wrong', 900);
+        }
         if (next.phase === 'OVER') a.sfx('win', 1200);
       }
       if (prev && next.phase === 'CLUES' && prev.round !== next.round) {

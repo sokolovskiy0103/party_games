@@ -44,6 +44,24 @@ class GameTest {
         }
     }
 
+    @Test fun tvBoardHidesSecretWordsAndCodes() {
+        val (g, _) = game()
+        assertTrue(g.startGame())
+        val secret = g.teams.flatMap { it.words } + g.teams.map { it.code.joinToString("") }
+        fun assertHidden(s: String) {
+            assertFalse(s, s.contains("\"words\""))
+            secret.filter { it.length > 1 }.forEach { assertFalse(s, s.contains("\"$it\"")) }
+            g.teams.forEach { t -> t.words.forEach { assertFalse(s, s.contains("\"$it\"")) } }
+        }
+        assertHidden(g.stateJson(null, false, 0).toString())
+        g.allClues()
+        assertHidden(g.stateJson(null, false, 0).toString())
+        for (t in 0..1) g.answer(g.guesser(t), OWN, g.teams[t].code)
+        assertEquals(Game.Phase.REVEAL, g.phase)
+        // after the reveal the codes and clues are public, so the board may show them
+        assertEquals(1, g.stateJson(null, false, 0).getJSONArray("log").length())
+    }
+
     @Test fun newcomersBalanceTeamsAndStartNeedsTwoEach() {
         val (g, _) = game(3)
         assertEquals(listOf(2, 1), (0..1).map { g.members(it).size })

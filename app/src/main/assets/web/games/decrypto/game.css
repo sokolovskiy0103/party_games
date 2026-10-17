@@ -27,3 +27,12 @@
 .decrypto .bclue { font-size: 13px; padding: 3px 0; border-top: 1px solid var(--line); word-break: break-word; animation: fx-in .35s var(--ease) backwards; }
 .decrypto .rteam + .rteam { border-top: 1px solid var(--line); padding-top: 12px; }
 .decrypto .rteam > * + * { margin-top: 6px; }
+
+/* TV: read from across the room */
+body.tv .decrypto .tokens { font-size: 26px; }
+body.tv .decrypto .board { gap: 10px; }
+body.tv .decrypto .col { padding: 10px; }
+body.tv .decrypto .col-head { font-size: 18px; }
+body.tv .decrypto .bclue { font-size: 17px; }
+body.tv .decrypto .kword { font-size: 22px; }
+body.tv .decrypto .pclue { font-size: 22px; }
