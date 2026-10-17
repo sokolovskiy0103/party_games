@@ -374,6 +374,8 @@
   PG.register('draw', {
     // background music per phase (shell.js): drawing and writing are quiet; the results get talked over
     music: { RESULT: 'low', OVER: 'low' },
+    musicLoop: 80.7273,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['scribble'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();
@@ -407,7 +409,7 @@
       }
       if (prev && prev.phase !== next.phase) {
         a.vibrate(120);
-        if (next.phase === 'DRAW') a.sfx('draw_scribble');
+        if (next.phase === 'DRAW') a.sfx('scribble');
         if (next.phase === 'VOTE') a.sfx('your_turn');
         if (next.phase === 'OVER') a.sfx('win');
       }

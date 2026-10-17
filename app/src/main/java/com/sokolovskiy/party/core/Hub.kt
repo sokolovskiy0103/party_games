@@ -230,7 +230,7 @@ class Hub(private val context: Context) : GameEnv {
     // ---------- GameEnv ----------
 
     override fun asset(name: String): String =
-        context.assets.open("web/$name").bufferedReader().use { it.readText() }
+        context.assets.open("data/$name").bufferedReader().use { it.readText() }
 
     override fun <T> locked(block: () -> T): T = synchronized(lock) { block() }
 

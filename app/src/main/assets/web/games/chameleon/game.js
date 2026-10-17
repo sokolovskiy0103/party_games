@@ -206,6 +206,8 @@
   PG.register('chameleon', {
     // background music per phase (shell.js): clues are said aloud, then everyone argues
     music: { CLUES: 'low', VOTE: 'low', RESULT: 'low' },
+    musicLoop: 78.4615,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['caught'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();

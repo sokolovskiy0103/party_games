@@ -275,6 +275,8 @@
   PG.register('codenames', {
     // background music per phase (shell.js): teams discuss their guesses
     music: { PLAY: 'low', OVER: 'low' },
+    musicLoop: 78.75,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['assassin'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();

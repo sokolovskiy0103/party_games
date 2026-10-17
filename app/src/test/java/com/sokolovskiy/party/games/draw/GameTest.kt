@@ -224,7 +224,7 @@ class GameTest {
     }
 
     @Test fun bundledPrompts() {
-        val f = listOf("src/main/assets/web/draw-prompts.json", "app/src/main/assets/web/draw-prompts.json").map(::File).first { it.exists() }
+        val f = listOf("src/main/assets/data/draw-prompts.json", "app/src/main/assets/data/draw-prompts.json").map(::File).first { it.exists() }
         val b = PromptBank.fromJson(f.readText())
         assertTrue(b.size > 100)
     }

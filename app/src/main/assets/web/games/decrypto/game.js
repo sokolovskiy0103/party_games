@@ -228,6 +228,8 @@
   PG.register('decrypto', {
     // background music per phase (shell.js): encryptors think in silence; teams talk over the guesses
     music: { GUESS: 'low', REVEAL: 'low', OVER: 'low' },
+    musicLoop: 81.6,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['radio'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();
@@ -249,7 +251,7 @@
       if (!next) return;
       if (prev && prev.phase !== next.phase) {
         armed = null; a.vibrate(120);
-        if (next.phase === 'GUESS') a.sfx('decrypto_radio');
+        if (next.phase === 'GUESS') a.sfx('radio');
         if (next.phase === 'REVEAL') a.sfx('reveal');
         if (next.phase === 'OVER') a.sfx('win', 1200);
       }

@@ -168,6 +168,7 @@
   PG.register('ito', {
     // background music per phase (shell.js): the whole round is a discussion
     music: { PLAY: 'low', RESULT: 'low', OVER: 'low' },
+    musicLoop: 79.0588,  // seconds of music.mp3 that loop: a whole number of bars
     render(a) {
       api = a;
       const s = g();

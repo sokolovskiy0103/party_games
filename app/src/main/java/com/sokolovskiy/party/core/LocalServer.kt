@@ -42,7 +42,7 @@ class LocalServer(private val context: Context, private val hub: Hub) {
             routing {
                 get("/") { serve(call, "index.html") }
                 get("/host") { serve(call, "index.html") }
-                get("/static/{file}") { serve(call, call.parameters["file"] ?: "") }
+                get("/static/{path...}") { serve(call, call.parameters.getAll("path")?.joinToString("/") ?: "") }
                 get("/qr.svg") {
                     val text = call.request.queryParameters["t"] ?: ""
                     call.respondText(NetUtil.qrSvg(text), ContentType.parse("image/svg+xml"))
@@ -79,9 +79,12 @@ class LocalServer(private val context: Context, private val hub: Hub) {
     companion object {
         private const val TAG = "PartyLocal"
 
-        /** Web asset bytes and MIME type, or null. Names are flat: no folders, no "..". */
+        /** A path under `assets/web`: segments of letters, digits, `.`, `_`, `-`, none starting with a dot. */
+        private val SAFE_PATH = Regex("""^[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$""")
+
+        /** Web asset bytes and MIME type, or null. [name] is a path inside `assets/web`, e.g. `games/hat/game.js`. */
         fun readAsset(context: Context, name: String): Pair<ByteArray, String>? {
-            if (name.isEmpty() || name.contains("..") || name.contains('/') || name.contains('\\')) return null
+            if (!SAFE_PATH.matches(name)) return null
             val bytes = try {
                 context.assets.open("web/$name").use { it.readBytes() }
             } catch (_: Exception) {

@@ -78,6 +78,7 @@
     clockOffset = m.now - Date.now();
     if (m.me && m.me.id !== pid) { pid = m.me.id; store.set(K + 'pid', pid); joining = false; }
     prev = st; st = m;
+    loadGames();
     const switched = prev && prev.game !== st.game;
     if (switched) { showInvite = false; menuOpen = false; rulesOpen = false; bigQr = false; }
     const g = st.game && games[st.game];
@@ -113,9 +114,17 @@
   const soundOn = () => !!(audioCtx && audioCtx.state === 'running');
 
   const MUSIC_VOL = 0.5, FX_VOL = 0.8, LEVEL = { on: 1, low: 0.3, off: 0 };
-  // { music: { <game|'lobby'>: loop seconds }, sfx: [names] }, written by the sound build script
-  let manifest = null;
-  fetch(base + 'static/sounds.json').then(r => r.json()).then(m => { manifest = m; updateMusic(); }, () => {});
+  // The shell's own sounds: core/music.mp3 in the lobby (loop seconds: a whole number of bars) and core/sfx/<name>.mp3.
+  // A game brings its own as games/<id>/music.mp3 (`musicLoop`) and games/<id>/sfx/<name>.mp3 (`sfx: [names]`);
+  // while it is on, its names win over these.
+  const LOBBY_LOOP = 79.2857;
+  const CORE_SFX = ['tick', 'tick_urgent', 'time_up', 'win', 'lose', 'correct', 'wrong', 'your_turn', 'reveal',
+    'whoosh', 'join', 'vote', 'card', 'suspense'];
+  function fxFile(name) {
+    const g = st && st.game && games[st.game];
+    if (g && g.sfx && g.sfx.indexOf(name) >= 0) return 'games/' + st.game + '/sfx/' + name + '.mp3';
+    return CORE_SFX.indexOf(name) >= 0 ? 'core/sfx/' + name + '.mp3' : null;
+  }
 
   const bufs = {};
   function buffer(file) {
@@ -129,12 +138,13 @@
 
   const lastFx = {};
   function playFx(name) {
-    if (!soundOn() || !sndOn('sfx') || !manifest || manifest.sfx.indexOf(name) < 0) return;
+    const file = fxFile(name);
+    if (!soundOn() || !sndOn('sfx') || !file) return;
     // the ticker and a game may both announce the same moment
     const t = Date.now();
     if (t - (lastFx[name] || 0) < 700) return;
     lastFx[name] = t;
-    buffer('s-' + name + '.mp3').then(b => {
+    buffer(file).then(b => {
       const s = audioCtx.createBufferSource(), v = audioCtx.createGain();
       s.buffer = b; v.gain.value = FX_VOL;
       s.connect(v); v.connect(audioCtx.destination); s.start();
@@ -171,11 +181,12 @@
   }
   function updateMusic() {
     if (!audioCtx) return;
-    let name = null, vol = 0;
-    if (soundOn() && manifest && st && speaker() && sndOn('music')) {
+    let name = null, vol = 0, loop = 0;
+    if (soundOn() && st && speaker() && sndOn('music')) {
       const g = st.game && games[st.game];
       const phase = st.phase || (st.g && st.g.phase) || '';
-      name = manifest.music[st.game || 'lobby'] ? st.game || 'lobby' : null;
+      loop = st.game ? (g && g.musicLoop) || 0 : LOBBY_LOOP;
+      name = !loop ? null : st.game ? 'games/' + st.game + '/music.mp3' : 'core/music.mp3';
       const lv = LEVEL[(g && g.music && g.music[phase]) || 'on'];
       vol = MUSIC_VOL * (lv == null ? 1 : lv);
     }
@@ -192,12 +203,12 @@
     const t = track = { name, gain: audioCtx.createGain(), vol, src: null };
     t.gain.gain.value = 0;
     t.gain.connect(audioCtx.destination);
-    buffer('m-' + name + '.mp3').then(b => {
+    buffer(name).then(b => {
       if (track !== t) return;
       const s = t.src = audioCtx.createBufferSource();
       const lead = leadIn(b);
       s.buffer = b; s.loop = true;
-      s.loopStart = lead; s.loopEnd = Math.min(b.duration, lead + manifest.music[name]);
+      s.loopStart = lead; s.loopEnd = Math.min(b.duration, lead + loop);
       s.connect(t.gain);
       s.start(0, lead);
       ramp(t.gain, t.vol, 2.5);
@@ -291,8 +302,8 @@
   }, 250);
 
   // ---------- background ----------
-  // A game's `bg` is 'still' (bg-<id>.webp) or 'loop' (bg-<id>.webm / .mp4 over that still as the poster); the TV
-  // takes the landscape cut (bg-<id>-tv.*). The loops are made seamless at build time and kept under the relay's
+  // A game's `bg` is 'still' (games/<id>/bg.webp) or 'loop' (bg.webm / bg.mp4 over that still as the poster); the TV
+  // takes the landscape cut (bg-tv.*). The loops are made seamless at build time and kept under the relay's
   // asset limit. With reduced motion only the still is shown. #bg sits under body::before, which dims it.
   let bgKey = null;
   function updateBg() {
@@ -305,7 +316,7 @@
     const el = $('#bg');
     document.body.classList.toggle('has-bg', !!kind);
     if (!kind) { el.innerHTML = ''; return; }
-    const f = base + 'static/bg-' + id + (isTv ? '-tv' : '');
+    const f = base + 'static/games/' + id + '/bg' + (isTv ? '-tv' : '');
     const still = matchMedia('(prefers-reduced-motion: reduce)').matches || kind !== 'loop';
     el.innerHTML = still ? `<img src="${f}.webp" alt="">`
       : `<video autoplay muted loop playsinline disablepictureinpicture poster="${f}.webp">
@@ -315,6 +326,44 @@
   }
 
   window.PG = { register(id, mod) { games[id] = mod; }, api, ui };
+
+  // ---------- games ----------
+  // Each game is a folder games/<id>/ (game.js, game.css, rules.html, its sounds and background). The shell loads
+  // the code and theme of every game the server lists (the picker shows each card in its game's theme); the rules
+  // only when they are opened.
+  const loading = {};  // id -> 'loading' | 'ok' | 'fail'
+  function loadGames() {
+    (st.games || []).forEach(({ id }) => {
+      if (loading[id] || !/^[a-z0-9_-]+$/.test(id)) return;
+      loading[id] = 'loading';
+      const css = document.createElement('link');
+      css.rel = 'stylesheet'; css.href = base + 'static/games/' + id + '/game.css';
+      document.head.appendChild(css);
+      const js = document.createElement('script');
+      js.src = base + 'static/games/' + id + '/game.js';
+      js.onload = () => {
+        loading[id] = games[id] ? 'ok' : 'fail';
+        const g = games[id];
+        // the state arrived before the code: let the game catch up as if it had just started
+        if (g && st && st.game === id && g.onState && st.g && (!isTv || g.board)) g.onState(null, st.g, api);
+        updateMusic();
+        render();
+      };
+      js.onerror = () => { loading[id] = 'fail'; render(); };
+      document.body.appendChild(js);
+    });
+  }
+
+  const rules = {};  // id -> HTML, '' when there are none, null while loading
+  function rulesOf(id) {
+    if (!(id in rules)) {
+      rules[id] = null;
+      fetch(base + 'static/games/' + id + '/rules.html')
+        .then(r => r.ok ? r.text() : '', () => '')
+        .then(t => { rules[id] = t; render(); });
+    }
+    return rules[id];
+  }
 
   // ---------- views ----------
   function dice() {
@@ -470,7 +519,7 @@
 
     if (info) {
       let s = '';
-      if (window.PG_RULES && PG_RULES[st.game]) s += `<button class="soft" data-pg="rules">📖 Правила</button>`;
+      if (rulesOf(st.game)) s += `<button class="soft" data-pg="rules">📖 Правила</button>`;
       if (host && g && g.menu) s += gameMenu(g.menu(api));
       if (host) s += notStarted()
         ? `<button class="soft" data-pg="exitGame">🏠 Головне меню</button>`
@@ -537,13 +586,13 @@
     const joined = !!(pid && st && st.me);
     $('#menuBtn').hidden = !joined;
     if (!joined) menuOpen = false;
-    $('#infoBtn').hidden = !(info && window.PG_RULES && PG_RULES[st.game]);
+    $('#infoBtn').hidden = !(info && rulesOf(st.game));
     const rulesEl = $('#rules');
-    rulesEl.hidden = !(rulesOpen && info && window.PG_RULES && PG_RULES[st.game]);
+    rulesEl.hidden = !(rulesOpen && info && rulesOf(st.game));
     if (!rulesEl.hidden) {
       const html = `<div class="rules-card" role="dialog" aria-modal="true">
         <div class="rules-head"><b>${info.emoji} ${esc(info.title)} — правила</b><button class="mini ghost" data-pg="rules" aria-label="Закрити">✕</button></div>
-        <div class="rules-body">${PG_RULES[st.game]}</div></div>`;
+        <div class="rules-body">${rules[st.game]}</div></div>`;
       if (rulesEl._pgHtml !== html) { rulesEl._pgHtml = html; rulesEl.innerHTML = html; }
     }
     $('#extra').innerHTML = g && g.extra ? (g.extra(api) || '') : '';
@@ -573,7 +622,9 @@
     } else if (!st.game) {
       html = lobbyView();
     } else if (!g) {
-      html = `<div class="card center">Ця гра потребує новішої версії сторінки. Онови її.</div>`;
+      html = loading[st.game] === 'fail'
+        ? `<div class="card center">Не вдалося завантажити гру. Онови сторінку.</div>`
+        : `<div class="center muted" style="margin-top:30vh"><span class="spinner"></span></div>`;
     } else {
       const out = g.render(api) || '';
       if (typeof out === 'string') html = out; else { html = out.html || ''; bar = out.bar || ''; }

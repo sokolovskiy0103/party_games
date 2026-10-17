@@ -330,6 +330,8 @@
   PG.register('bomb', {
     // background music per phase (shell.js): silent concentration over the wires; quieter over the result
     music: { WIN: 'low', LOSE: 'low' },
+    musicLoop: 80.64,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['cut', 'defused', 'explosion', 'fuse', 'tool'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();
@@ -352,12 +354,12 @@
       if (!prev || prev.round !== next.round || prev.turn !== next.turn || prev.phase !== next.phase) reset();
       if (prev && prev.phase !== next.phase) a.vibrate(120);
       if (prev && prev.seq !== next.seq) {
-        if (next.last === 'boom') { a.vibrate([300, 100, 300, 100, 600]); a.sfx('bomb_explosion'); a.sfx('lose', 2500); }
+        if (next.last === 'boom') { a.vibrate([300, 100, 300, 100, 600]); a.sfx('explosion'); a.sfx('lose', 2500); }
         else if (next.last === 'miss') { a.vibrate([200, 80, 200]); a.sfx('wrong'); }
-        else if (next.last === 'hit' || next.last === 'solo' || next.last === 'reds') { a.vibrate(60); a.sfx('bomb_cut'); }
-        else if (next.last === 'tool') { a.vibrate(30); a.sfx('bomb_tool'); }
+        else if (next.last === 'hit' || next.last === 'solo' || next.last === 'reds') { a.vibrate(60); a.sfx('cut'); }
+        else if (next.last === 'tool') { a.vibrate(30); a.sfx('tool'); }
       }
-      if (prev && prev.phase !== 'WIN' && next.phase === 'WIN') { a.sfx('bomb_defused'); a.sfx('win', 1600); }
+      if (prev && prev.phase !== 'WIN' && next.phase === 'WIN') { a.sfx('defused'); a.sfx('win', 1600); }
       const mine = s => s && s.me && s.phase === 'PLAY' && s.turn === s.me.id;
       if (mine(next) && !mine(prev)) a.vibrate([80, 60, 80]);
       // A wire I pointed at got cut: drop it.

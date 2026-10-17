@@ -102,7 +102,8 @@ const server = http.createServer(async (req, res) => {
   let name;
   if (rest === '/') name = 'index.html';
   else {
-    const s = rest.match(/^\/static\/([A-Za-z0-9._-]+)$/);
+    // a path inside the phone's assets/web: segments of [A-Za-z0-9._-], none starting with a dot (so no "..")
+    const s = rest.match(/^\/static\/([A-Za-z0-9_-][A-Za-z0-9._-]*(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*)$/);
     if (!s) { res.writeHead(404); return res.end('not found'); }
     name = s[1];
   }

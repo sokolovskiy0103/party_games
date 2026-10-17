@@ -7,7 +7,7 @@ import org.json.JSONObject
  * every time the host picks the game in the room and dropped when they go back to the menu.
  */
 interface GameModule {
-    /** Stable id, also the name of the web module (`assets/web/<id>.js`). */
+    /** Stable id, also the folder of the web module (`assets/web/games/<id>/`). */
     val id: String
     val title: String
     val subtitle: String
@@ -27,7 +27,7 @@ interface GameModule {
 interface GameEnv {
     val room: Room
 
-    /** Reads a text file from `assets/web`. */
+    /** Reads a text file from `assets/data` (word banks and other content the server keeps to itself). */
     fun asset(name: String): String
 
     /** Runs [block] under the room lock (for code running outside a message, e.g. async jobs). */

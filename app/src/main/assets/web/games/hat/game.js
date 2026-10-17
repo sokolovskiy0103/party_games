@@ -515,6 +515,8 @@
   PG.register('hat', {
     // background music per phase (shell.js): the explainer has to be heard
     music: { TURN: 'off', TURN_END: 'low', FINAL: 'low' },
+    musicLoop: 82.2857,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['skip'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       if (!g()) return '';
@@ -555,7 +557,7 @@
       // within a turn: a character guessed, or skipped back into the hat
       if (prev && prev.phase === 'TURN' && next.phase === 'TURN' && prev.turn && next.turn) {
         if ((next.turn.guessed || []).length > (prev.turn.guessed || []).length) a.sfx('correct');
-        if ((next.turn.skips || 0) > (prev.turn.skips || 0)) a.sfx('hat_skip');
+        if ((next.turn.skips || 0) > (prev.turn.skips || 0)) a.sfx('skip');
       }
     },
 

@@ -19,7 +19,7 @@ jobs:
       - name: Relay test and web syntax check
         run: |
           cd relay && npm install --no-audit --no-fund && npm test && cd ..
-          for f in app/src/main/assets/web/*.js; do node --check "$f"; done
+          find app/src/main/assets/web -name "*.js" -print0 | xargs -0 -n1 node --check
 
   build:
     needs: relay

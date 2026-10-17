@@ -265,6 +265,8 @@
   PG.register('herd', {
     // background music per phase (shell.js): answers are typed; the results get talked over
     music: { RESULTS: 'low', GAMEOVER: 'low' },
+    musicLoop: 84,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['moo', 'pink'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const st = g();
@@ -283,11 +285,11 @@
       if (!prev || !next || prev.phase !== next.phase || prev.round !== next.round) { selected = null; showCustom = false; }
       if (prev && next && prev.phase !== next.phase) {
         api.vibrate(100);
-        if (next.phase === 'RESULTS') api.sfx('herd_moo');
+        if (next.phase === 'RESULTS') api.sfx('moo');
         if (next.phase === 'GAMEOVER') api.sfx('win');
       }
       // the pink cow changed hands
-      if (prev && next && next.pinkCow && next.pinkCow !== prev.pinkCow) api.sfx('herd_pink', 1500);
+      if (prev && next && next.pinkCow && next.pinkCow !== prev.pinkCow) api.sfx('pink', 1500);
     },
 
     menu(a) {

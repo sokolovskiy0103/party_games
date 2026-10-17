@@ -233,6 +233,7 @@
   PG.register('insider', {
     // background music per phase (shell.js): questions to the master need silence; the discussion goes over quiet music
     music: { QUESTIONS: 'off', DISCUSSION: 'low', RESULT: 'low' },
+    musicLoop: 74.2857,  // seconds of music.mp3 that loop: a whole number of bars
     render(a) {
       api = a;
       const s = g();

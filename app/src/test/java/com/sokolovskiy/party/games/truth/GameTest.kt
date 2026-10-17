@@ -154,7 +154,7 @@ class GameTest {
     }
 
     @Test fun shippedBankIsBigAndYesNo() {
-        val file = listOf("src/main/assets/web/truth-questions.json", "app/src/main/assets/web/truth-questions.json", "../app/src/main/assets/web/truth-questions.json")
+        val file = listOf("src/main/assets/data/truth-questions.json", "app/src/main/assets/data/truth-questions.json", "../app/src/main/assets/data/truth-questions.json")
             .map { File(it) }.first { it.exists() }
         val b = QuestionBank.fromJson(file.readText())
         assertTrue(b.size >= 300)

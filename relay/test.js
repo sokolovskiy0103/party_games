@@ -34,7 +34,8 @@ function fakeHost(port, q = '') {
   ws.on('message', raw => {
     const m = JSON.parse(raw);
     if (m.t === 'asset') {
-      if (m.name === 'index.html') ws.send(JSON.stringify({ t: 'asset', id: m.id, status: 200, type: 'text/html; charset=utf-8', b64: Buffer.from('<h1>гра</h1>').toString('base64') }));
+      if (m.name === 'games/hat/game.js') ws.send(JSON.stringify({ t: 'asset', id: m.id, status: 200, type: 'application/javascript; charset=utf-8', b64: Buffer.from('PG.register()').toString('base64') }));
+      else if (m.name === 'index.html') ws.send(JSON.stringify({ t: 'asset', id: m.id, status: 200, type: 'text/html; charset=utf-8', b64: Buffer.from('<h1>гра</h1>').toString('base64') }));
       else ws.send(JSON.stringify({ t: 'asset', id: m.id, status: 404 }));
     }
     if (m.t === 'm') ws.send(JSON.stringify({ t: 'm', c: m.c, d: 'echo:' + m.d }));

@@ -167,6 +167,8 @@
   PG.register('truth', {
     // background music per phase (shell.js): answering is private; the reveal gets talked over
     music: { REVEAL: 'low', OVER: 'low' },
+    musicLoop: 75.1304,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['detector'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();
@@ -187,7 +189,7 @@
       if (!next) return;
       if (prev && prev.phase !== next.phase) {
         a.vibrate(120);
-        if (next.phase === 'REVEAL') a.sfx('truth_detector');
+        if (next.phase === 'REVEAL') a.sfx('detector');
         if (next.phase === 'OVER') a.sfx('win');
       }
     },

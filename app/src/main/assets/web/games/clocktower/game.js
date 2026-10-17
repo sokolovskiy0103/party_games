@@ -274,6 +274,8 @@
     bg: 'loop',
     // background music per phase (shell.js): the night is the music's; the day is talk
     music: { DAY: 'low', OVER: 'low' },
+    musicLoop: 75.4286,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['bell', 'dawn', 'death', 'night'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();
@@ -303,13 +305,13 @@
       if (prev && role(prev) && role(prev) !== role(next)) { revealed = true; a.vibrate([200, 100, 200]); }
       if (prev && !prev.vote && next.vote) { a.vibrate(100); a.sfx('vote'); }
       if (prev && prev.phase !== next.phase) {
-        if (next.phase === 'NIGHT') a.sfx('clocktower_bell');
-        if (next.phase === 'DAY') { a.sfx('clocktower_dawn'); if ((next.dawn || []).length) a.sfx('clocktower_death', 2200); }
+        if (next.phase === 'NIGHT') a.sfx('bell');
+        if (next.phase === 'DAY') { a.sfx('dawn'); if ((next.dawn || []).length) a.sfx('death', 2200); }
         if (next.phase === 'OVER') { a.sfx('reveal'); a.sfx('win', 2000); }
       }
       // someone died during the day (an execution)
       const alive = s => (s && s.seats || []).filter(p => p.alive).length;
-      if (prev && prev.phase === 'DAY' && next.phase === 'DAY' && alive(next) < alive(prev)) a.sfx('clocktower_death');
+      if (prev && prev.phase === 'DAY' && next.phase === 'DAY' && alive(next) < alive(prev)) a.sfx('death');
     },
 
     click(e, a) {

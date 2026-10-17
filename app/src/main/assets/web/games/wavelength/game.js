@@ -262,6 +262,8 @@
   PG.register('wavelength', {
     // background music per phase (shell.js): the psychic thinks in silence; the team argues over the dial
     music: { GUESS: 'low', RESULT: 'low' },
+    musicLoop: 75,  // seconds of music.mp3 that loop: a whole number of bars
+    sfx: ['dial', 'target'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
       const s = g();
@@ -285,8 +287,8 @@
         myVal = next.myGuess !== undefined ? next.myGuess : 50;
         if (prev && next.phase !== 'LOBBY') a.vibrate(120);
         if (prev && prev.phase !== next.phase) {
-          if (next.phase === 'GUESS') a.sfx('wavelength_dial');
-          if (next.phase === 'RESULT') { a.sfx('wavelength_reveal'); if (next.series && next.series.over) a.sfx('win', 1500); }
+          if (next.phase === 'GUESS') a.sfx('dial');
+          if (next.phase === 'RESULT') { a.sfx('target'); if (next.series && next.series.over) a.sfx('win', 1500); }
         }
       }
     },
