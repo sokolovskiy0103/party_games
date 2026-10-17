@@ -515,7 +515,8 @@
   PG.register('hat', {
     // background music per phase (shell.js): the explainer has to be heard
     music: { TURN: 'off', TURN_END: 'low', FINAL: 'low' },
-    musicLoop: 82.2857,  // seconds of music.mp3 that loop: a whole number of bars
+    musicLoop: 64,  // seconds of music.mp3 that loop: a whole number of bars (32 bars at 120 BPM)
+    bg: 'still',  // games/hat/bg.webp (phone), bg-tv.webp (TV)
     sfx: ['skip'],  // own effects: sfx/<name>.mp3
     render(a) {
       api = a;
@@ -548,7 +549,7 @@
         if (prev) {
           const mineTurn = next.turn && next.me && next.turn.explainer === next.me.id;
           if (next.phase === 'TURN_END') { a.vibrate([200, 100, 200]); a.sfx('time_up'); }
-          else if (next.phase === 'READY' && mineTurn) a.vibrate([80, 60, 80]);
+          else if (next.phase === 'READY' && mineTurn) { a.vibrate([80, 60, 80]); a.sfx('your_turn'); }
           else a.vibrate(60);
           if (next.phase === 'ROUND_END') a.sfx('reveal');
           if (next.phase === 'FINAL') a.sfx('win');
