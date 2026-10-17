@@ -103,6 +103,8 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface fun version(): String = Updater.installedName(this@MainActivity)
         @JavascriptInterface fun updateAvailable(): String = updates.available?.name ?: ""
         @JavascriptInterface fun checkUpdate() { runOnUiThread { updates.check(manual = true) } }
+        /** "📺 Транслювати" in the invite card: the system's cast picker; the TV then gets its own page (TvPresenter). */
+        @JavascriptInterface fun castScreen(): Boolean = TvPresenter.openScreenCast(this@MainActivity)
         /** "Вийти" in the menu: same as the notification's "Завершити гру" — stops the server and the app. */
         @JavascriptInterface fun quit() {
             runOnUiThread {

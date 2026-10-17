@@ -13,6 +13,11 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
+    <!-- Samsung's Smart View, opened by the "📺 Транслювати" button (package visibility on Android 11+). -->
+    <queries>
+        <package android:name="com.samsung.android.smartmirroring" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

@@ -31,6 +31,7 @@
   let rulesOpen = false;
   let showRelayUrl = false;
   let bigQr = false;
+  let castFailed = false;  // the phone has no cast screen to open
   let armed = null;
 
   // Dev helper: ?autojoin=Name joins without touching the form (used by the desktop 4-pane launcher).
@@ -275,8 +276,14 @@
   /** How to put the room on a TV: the player address with ?tv, and whether one is watching. */
   function tvHint(url) {
     if (!url) return '';
-    const cast = window.PGApp ? ' — або просто увімкни трансляцію екрана телефона (Smart View, бездротовий дисплей)' : '';
-    return `<div class="muted small">📺 На телевізор: відкрий у його браузері <span class="url">${esc(url)}?tv</span>${cast}${st.tvs ? ' · <span class="c-good">підключено ✓</span>' : ''}</div>`;
+    const app = !!(window.PGApp && PGApp.castScreen);
+    return `<div class="stack">
+      ${app && !st.tvs ? '<button class="soft" data-pg="cast">📺 Транслювати на телевізор</button>' : ''}
+      ${castFailed && !st.tvs ? '<div class="small c-warn">Не знайшов налаштувань трансляції — увімкни її у шторці («Smart View», «Трансляція», «Бездротовий дисплей»).</div>' : ''}
+      <div class="muted small">${st.tvs ? '📺 <span class="c-good">Телевізор підключено ✓</span>' : app
+        ? `Обери свій телевізор у списку — він покаже окрему картинку, а телефон лишиться пультом. Або відкрий у браузері телевізора <span class="url">${esc(url)}?tv</span>`
+        : `📺 На телевізор: відкрий у його браузері <span class="url">${esc(url)}?tv</span>`}</div>
+    </div>`;
   }
 
   /** QR + network switch. Compact puts a small QR next to the text (lobby), so the game list stays near the top. */
@@ -610,6 +617,12 @@
       case 'rules': rulesOpen = !rulesOpen; if (rulesOpen) { menuOpen = false; armed = null; } return render();
       case 'menu': return setDrawer(!menuOpen);
       case 'sound': unlockAudio(); return setTimeout(render, 150);
+      case 'cast': {
+        let ok = false;
+        try { ok = PGApp.castScreen(); } catch (_) {}
+        if (!ok) { castFailed = true; render(); }
+        return;
+      }
       case 'bigQr': bigQr = !bigQr; return render();
       case 'arm': armed = el.dataset.v; return render();
       case 'kick': {
