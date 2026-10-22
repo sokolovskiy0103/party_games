@@ -14,6 +14,7 @@ import com.sokolovskiy.party.games.ito.ItoModule
 import com.sokolovskiy.party.games.truth.TruthModule
 import com.sokolovskiy.party.games.insider.InsiderModule
 import com.sokolovskiy.party.games.wavelength.WavelengthModule
+import com.sokolovskiy.party.games.words.WordsModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -56,6 +57,7 @@ class Hub(private val context: Context) : GameEnv {
         InsiderModule(),
         HerdModule(context) { broadcast() },
         HatModule(),
+        WordsModule(),
         WavelengthModule(),
         ChameleonModule(),
         ItoModule(),

@@ -1,0 +1,171 @@
+/* «Скажи інакше»: a late-night TV game show — navy studio, teal spotlights, a coral buzzer, a paper cue card. */
+[data-theme=words] {
+  --bg: #0b1820;
+  --bg2: #10222c;
+  --card: #142a35;
+  --line: #24414e;
+  --muted: #8fb0b8;
+  --accent: #2ed3b7;
+  --on-accent: #04241f;
+  --bad: #ff6b5e;
+  --coral: #ff8a6b;
+  --veil: .6;
+}
+/* the turn: the room listens, the studio dims */
+body[data-theme=words][data-phase=TURN] { --veil: .72; }
+body[data-theme=words][data-phase=LAST] { --accent: var(--coral); --on-accent: #2a0d06; }
+body[data-theme=words] #bg > * { transition: filter var(--slow); }
+body[data-theme=words][data-phase=TURN] #bg > * { filter: saturate(.8) brightness(.8); }
+body[data-theme=words][data-phase=LAST] #bg > * { filter: hue-rotate(-150deg) saturate(1.1); }
+body[data-theme=words][data-phase=FINAL] #bg > * { filter: brightness(1.15) saturate(1.2); }
+
+/* ---------- show title in the lobby ---------- */
+.words .show-title {
+  display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 6px 0 2px;
+  animation: fx-drop .6s var(--bounce) backwards;
+}
+.words .show-title b { font-size: 28px; letter-spacing: -.5px; color: var(--accent-text); text-shadow: 0 0 18px var(--glow); }
+.words .show-title .q { font-size: 56px; line-height: .6; height: 28px; font-weight: 900; color: var(--accent); text-shadow: 0 0 14px var(--glow); }
+.words .show-title .q:last-child { color: var(--coral); text-shadow: 0 0 14px color-mix(in srgb, var(--coral) 45%, transparent); }
+
+.words .card.team.mine { box-shadow: 0 0 0 2px var(--tc), var(--shadow); }
+.words .role { font-size: 15px; }
+
+/* ---------- «on air» plate ---------- */
+.words .onair {
+  position: relative; text-align: center; padding: 16px 16px 18px; border-radius: var(--r-xl);
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--tc) 30%, var(--card)), var(--card) 70%);
+  border: 2px solid color-mix(in srgb, var(--tc) 70%, transparent);
+  box-shadow: 0 0 28px -6px var(--tc), inset 0 0 22px -12px var(--tc);
+  animation: fx-pop .5s var(--spring) backwards;
+}
+.words .onair > * + * { margin-top: 8px; }
+.words .onair .lamp {
+  display: inline-block; font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 6px; color: #fff; background: var(--bad);
+  box-shadow: 0 0 12px var(--bad); animation: words-lamp 1.6s ease-in-out infinite;
+}
+.words .onair .who { font-size: 22px; font-weight: 900; letter-spacing: -.3px; }
+.words .onair.big .who { font-size: 30px; }
+@keyframes words-lamp { 50% { opacity: .55; box-shadow: 0 0 4px var(--bad); } }
+.words button.go { font-size: 22px; padding: 22px; }
+
+/* ---------- the clock ---------- */
+.words .clock { text-align: center; }
+.words .timer { font-size: 64px; }
+.words .clock .bar { margin-top: 6px; }
+
+/* ---------- cue card: a sheet of paper under a spotlight ---------- */
+.words .cue {
+  --paper: color-mix(in oklab, var(--text) 94%, var(--accent));
+  --ink: var(--bg);
+  position: relative; text-align: center; padding: 26px 18px 18px; border-radius: 18px;
+  background: var(--paper); color: var(--ink);
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, .7), 0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 46px -8px var(--glow);
+  transform: rotate(-1.2deg);
+  animation: words-deal .45s var(--spring) backwards;
+}
+.words .cue::before {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 10px; border-radius: 18px 18px 0 0;
+  background: var(--accent);
+}
+.words .cue .cw { font-size: 40px; font-weight: 900; letter-spacing: -.8px; line-height: 1.08; word-break: break-word; }
+.words .cue .watch { font-size: 13px; font-weight: 700; color: color-mix(in oklab, var(--ink) 65%, var(--paper)); margin-bottom: 8px; }
+.words .cue .forbid {
+  margin: 16px -6px 0; padding: 10px 12px 12px; border-radius: 12px;
+  background: color-mix(in oklab, var(--bad) 16%, var(--paper)); border: 2px dashed color-mix(in oklab, var(--bad) 70%, var(--paper));
+}
+.words .cue .flabel { font-size: 11px; font-weight: 900; letter-spacing: 1.5px; text-transform: uppercase; color: color-mix(in oklab, var(--bad) 80%, var(--ink)); margin-bottom: 4px; }
+.words .cue .fw {
+  font-size: 19px; font-weight: 800; padding: 4px 0; color: color-mix(in oklab, var(--bad) 55%, var(--ink));
+  text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: color-mix(in srgb, var(--bad) 55%, transparent);
+  animation: fx-in .3s var(--d, 0s) var(--ease) backwards;
+}
+.words .cue.hot { --accent: var(--coral); animation: words-deal .45s var(--spring) backwards, fx-heartbeat 1.2s .5s ease-in-out infinite; }
+@keyframes words-deal {
+  from { opacity: 0; transform: translateX(46%) rotate(9deg) scale(.92); }
+  to { opacity: 1; transform: rotate(-1.2deg); }
+}
+
+/* ---------- tally of the turn ---------- */
+.words .tally { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.words .tally .tc {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; border-radius: var(--r);
+  background: var(--bg2); border: 1px solid var(--line);
+}
+.words .tally .tc span { font-size: 12px; color: var(--muted); }
+.words .tally .tc b { font-size: 24px; font-variant-numeric: tabular-nums; animation: fx-pop .4s var(--spring) backwards; }
+.words .tally .tc.c-good b { color: var(--good); }
+.words .tally .tc.c-warn b { color: var(--warn); }
+.words .tally .tc.c-bad b { color: var(--bad); }
+.words .tally .sum { background: var(--accent-soft); border-color: var(--accent-line); }
+.words .tally .sum b { color: var(--accent-text); }
+
+/* someone else explains: a listening ear */
+.words .listen { text-align: center; padding: 18px 0 6px; }
+.words .listen .ear { font-size: 64px; line-height: 1; animation: fx-float 3s ease-in-out infinite; }
+.words .said .chip { animation: fx-pop .35s var(--spring) backwards; }
+.words .said .chip.FOUL { border-color: var(--bad); }
+.words .said .chip.SKIP { opacity: .7; }
+
+/* ---------- the explainer's bar ---------- */
+.words-bar { display: flex; gap: 8px; }
+.words-bar button { min-height: 76px; font-size: 20px; border-radius: var(--radius); }
+.words-bar .skip { flex: 1; }
+.words-bar .oops { flex: none; width: 64px; font-size: 24px; padding: 0; }
+.words-bar .got { flex: 2; font-size: 24px; }
+/* the opponents' buzzer */
+.words-bar .buzzer {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 84px; border-radius: 999px; color: #fff; font-size: 24px; font-weight: 900;
+  background: radial-gradient(circle at 50% 30%, color-mix(in oklab, var(--bad) 70%, #fff), var(--bad) 55%, color-mix(in oklab, var(--bad) 70%, #000));
+  box-shadow: 0 6px 0 color-mix(in oklab, var(--bad) 55%, #000), 0 0 26px -4px var(--bad);
+  transition: transform var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+}
+.words-bar .buzzer small { font-size: 12px; font-weight: 600; opacity: .85; }
+.words-bar .buzzer:active { transform: translateY(5px); box-shadow: 0 1px 0 color-mix(in oklab, var(--bad) 55%, #000), 0 0 12px -4px var(--bad); }
+
+/* ---------- time is up ---------- */
+.words .banner.hotline { border-color: var(--coral); background: color-mix(in oklab, var(--coral) 16%, var(--bg)); }
+
+/* ---------- review ---------- */
+.words .result { display: flex; flex-direction: column; align-items: center; padding: 6px 0; }
+.words .result b { font-size: 72px; font-weight: 900; line-height: 1; letter-spacing: -2px; animation: fx-drop .6s var(--bounce) backwards; }
+.words .result span { color: var(--muted); }
+.words .result.up b { color: var(--good); text-shadow: 0 0 24px color-mix(in srgb, var(--good) 45%, transparent); }
+.words .result.down b { color: var(--bad); }
+.words .wrow { border-left: 4px solid transparent; padding-left: 10px; transition: border-color var(--mid), background-color var(--mid); }
+.words .wrow.GOT { border-left-color: var(--good); }
+.words .wrow.SKIP { border-left-color: var(--warn); }
+.words .wrow.FOUL { border-left-color: var(--bad); }
+.words .wrow.edit { cursor: pointer; }
+.words .wrow.edit:active { background: var(--bg2); }
+.words .wrow .mk { font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+/* ---------- scoreboard ---------- */
+.words .scores .srow { padding: 10px 0; border-bottom: 1px solid var(--line); transition: background-color var(--mid); }
+.words .scores .srow:last-of-type { border-bottom: 0; }
+.words .scores .srow.air { background: color-mix(in srgb, var(--tc) 9%, transparent); border-radius: var(--r-s); padding-left: 8px; padding-right: 8px; }
+.words .scores .pts { font-size: 22px; font-weight: 900; min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; animation: fx-pop .4s var(--spring) backwards; }
+.words .scores .goal { height: 6px; margin-top: 8px; border-radius: 99px; background: var(--bg2); overflow: hidden; }
+.words .scores .goal i { display: block; height: 100%; border-radius: inherit; background: var(--tc); box-shadow: 0 0 10px var(--tc); transition: width .8s var(--ease); }
+.words .recap .delta { font-size: 20px; }
+.words .rank { width: 28px; text-align: center; font-weight: 800; color: var(--muted); }
+
+.words .finale h1 { font-size: 30px; }
+
+/* ---------- TV ---------- */
+body.tv .words .onair .who { font-size: 40px; }
+body.tv .words .onair.big .who { font-size: 52px; }
+body.tv .words .tally .tc b { font-size: 40px; }
+body.tv .words .tally .tc span { font-size: 16px; }
+body.tv .words .said .chip { font-size: 20px; padding: 8px 14px; }
+body.tv .words .result b { font-size: 120px; }
+body.tv .words .scores .pts { font-size: 34px; }
+body.tv .words .scores .goal { height: 10px; }
+body.tv .words .finale h1 { font-size: 44px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .words .cue, .words .cue.hot { transform: none; animation: none; }
+  .words .onair .lamp, .words .listen .ear { animation: none; }
+}
