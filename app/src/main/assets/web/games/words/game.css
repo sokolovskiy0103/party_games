@@ -173,4 +173,5 @@ body.tv .words .finale h1 { font-size: 44px; }
 /* kids mode: a big picture above the word, so the explainer needs no reading */
 .words .cue .ce { font-size: 96px; line-height: 1.05; margin-bottom: 6px; text-align: center; }
 .words .cue.has-pic .cw { font-size: 34px; text-align: center; }
-.words .pic { font-size: 1.25em; line-height: 1; vertical-align: -.1em; }
+.words.is-cards .cue .ce { font-size: 140px; }
+.words.is-cards .cue.has-pic .cw { font-size: 40px; }

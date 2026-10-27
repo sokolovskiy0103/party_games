@@ -19,14 +19,15 @@ import kotlin.random.Random
  *
  * In the taboo mode the other teams see the word with its forbidden words and can call a foul.
  * In the battle mode «Хлопці» explain the «female» bank and «Дівчата» the «male» one.
- * In the kids mode (for children who cannot read yet) the card shows a big picture (an emoji) with the word,
- * the words come from the `kidspics` bank: easy things (animals, food, toys, transport…), no taboo, no battle.
+ * The kids mode is for children who cannot read yet and plays alone or together, with no teams, clock or score to win:
+ *  CARDS    – everyone sees the same big picture (an emoji) with its word, from the `kidspics` bank (animals, food,
+ *             toys, transport…); anyone taps «guessed» (counted) or «another» to get the next card.
  */
 class Game(
     private val banks: Map<String, List<Word>>,
     private val random: Random = Random.Default,
 ) {
-    enum class Phase { LOBBY, TEAMS, READY, TURN, LAST, REVIEW, FINAL }
+    enum class Phase { LOBBY, TEAMS, READY, TURN, LAST, REVIEW, FINAL, CARDS }
     enum class Mark { GOT, SKIP, FOUL }
 
     /** [e] is the picture of the word (an emoji), empty if it has none. */
@@ -72,7 +73,7 @@ class Game(
     var lastForAll = true
     /** Two fixed teams, boys and girls, each explaining the other side's words. */
     var battle = false
-    /** Picture cards with easy words for children who cannot read yet. */
+    /** Picture cards with easy words for children who cannot read yet: no teams, no clock, any number of players. */
     var kids = false
     val themes = linkedSetOf("basic", "medium")
 
@@ -81,6 +82,11 @@ class Game(
     private var lastTeam = -1
     /** One deck per team in the battle mode, a shared one ("") otherwise. */
     private val decks = HashMap<String, ArrayDeque<Word>>()
+
+    // ---- kids mode ----
+    private var kidsCard: Word? = null
+    private var kidsGot = 0
+    private var kidsSeen = 0
 
     // ---- current turn ----
     var turnTeam = -1; private set
@@ -120,7 +126,9 @@ class Game(
         }
     }
 
-    fun canStart() = players.size >= MIN_PLAYERS
+    fun canStart() = players.size >= minPlayers()
+
+    fun minPlayers() = if (kids) 1 else MIN_PLAYERS
 
     // ---------- settings ----------
 
@@ -130,16 +138,13 @@ class Game(
         return true
     }
 
-    /** The host's mode: classic, taboo or kids (kids gets calmer defaults: no skip penalty, 90 s, 10 points). */
+    /** The host's mode: classic, taboo or kids. */
     fun setMode(mode: String): Boolean {
         if (phase != Phase.LOBBY) return false
         when (mode) {
             "classic" -> { taboo = false; kids = false }
             "taboo" -> { taboo = true; kids = false }
-            "kids" -> {
-                if (!kids) { skipPenalty = false; turnSeconds = 90; goal = 10 }
-                kids = true; taboo = false; battle = false
-            }
+            "kids" -> { kids = true; taboo = false; battle = false }
             else -> return false
         }
         return true
@@ -153,7 +158,8 @@ class Game(
     fun toTeams(): Boolean {
         if (phase != Phase.LOBBY || !canStart()) return false
         notice = null
-        if (battle && !kids) {
+        if (kids) return startKids()
+        if (battle) {
             teams.clear()
             BATTLE_TEAMS.forEachIndexed { i, (emoji, name) -> teams += Team(i, name, emoji) }
             players.values.forEach { it.team = null }
@@ -220,14 +226,45 @@ class Game(
         return true
     }
 
+    // ---------- kids mode ----------
+
+    /** LOBBY -> CARDS: no teams, any number of players. */
+    private fun startKids(): Boolean {
+        decks.clear()
+        kidsGot = 0
+        kidsSeen = 0
+        kidsCard = null
+        val first = drawKidsWord() ?: run { notice = "Слів для дитячого режиму немає."; return false }
+        kidsCard = first
+        kidsSeen = 1
+        phase = Phase.CARDS
+        return true
+    }
+
+    private fun drawKidsWord(): Word? {
+        val deck = decks.getOrPut(KIDS_BANK) { fill(KIDS_BANK) }
+        // a used-up deck starts over, never opening with the card just seen
+        if (deck.isEmpty()) {
+            val all = fill(KIDS_BANK)
+            deck.addAll(all.filter { it.w != kidsCard?.w }.ifEmpty { all })
+        }
+        return deck.removeFirstOrNull()
+    }
+
+    /** The next picture; [got] counts the current one as guessed. */
+    fun kidsNext(got: Boolean): Boolean {
+        if (phase != Phase.CARDS) return false
+        val next = drawKidsWord() ?: return false
+        if (got) kidsGot++
+        kidsCard = next
+        kidsSeen++
+        return true
+    }
+
     // ---------- words ----------
 
     /** Which bank a team explains: the opposite side's in the battle mode, the chosen themes otherwise. */
-    private fun deckKey(team: Int) = if (kids) KIDS_BANK else if (battle) (if (team == 0) "female" else "male") else ""
-
-    /** The picture of a word, looked up by its text (turn logs only keep the text). */
-    private fun emojiOf(w: String): String =
-        (banks[KIDS_BANK].orEmpty() + banks.values.flatten()).firstOrNull { it.w == w && it.e.isNotEmpty() }?.e.orEmpty()
+    private fun deckKey(team: Int) = if (battle) (if (team == 0) "female" else "male") else ""
 
     private fun fill(key: String): ArrayDeque<Word> {
         val ids = if (key.isEmpty()) themes.toList() else listOf(key)
@@ -407,6 +444,7 @@ class Game(
         teams.clear(); decks.clear(); entries.clear()
         players.values.forEach { it.team = null; it.explained = 0 }
         explainer = null; turnTeam = -1; deadline = 0; lastTurn = null; winner = null
+        kidsCard = null; kidsGot = 0; kidsSeen = 0
     }
 
     fun newGame() {
@@ -417,9 +455,6 @@ class Game(
     // ---------- state for clients ----------
 
     private fun markName(m: Mark?) = m?.name ?: JSONObject.NULL
-
-    private fun wordJson(w: String, mark: Any, e: String) =
-        JSONObject().put("w", w).put("mark", mark).also { if (e.isNotEmpty()) it.put("e", e) }
 
     fun stateJson(viewer: String?, isHost: Boolean, now: Long): JSONObject {
         val o = JSONObject()
@@ -433,7 +468,7 @@ class Game(
         o.put("battle", battle)
         o.put("kids", kids)
         o.put("themes", JSONArray(themes.toList()))
-        o.put("minPlayers", MIN_PLAYERS)
+        o.put("minPlayers", minPlayers())
         o.put("maxTeams", maxTeams())
         notice?.let { o.put("notice", it) }
         if (phase == Phase.LOBBY) {
@@ -469,25 +504,29 @@ class Game(
                 .put("skips", done.count { it.mark == Mark.SKIP })
                 .put("fouls", done.count { it.mark == Mark.FOUL })
                 // finished words were said out loud anyway
-                .put("words", JSONArray(done.map { wordJson(it.word.w, markName(it.mark), it.word.e) }))
+                .put("words", JSONArray(done.map { JSONObject().put("w", it.word.w).put("mark", markName(it.mark)) }))
                 .put("delta", turnDelta())
             if (phase == Phase.REVIEW) {
                 turn.put("lastBy", lastBy)
-                cur?.let { turn.put("last", it.word.w); if (it.word.e.isNotEmpty()) turn.put("lastE", it.word.e) }
+                cur?.let { turn.put("last", it.word.w) }
             }
             o.put("turn", turn)
             // The word on screen: the explainer, plus the other teams when they watch for taboo words.
             // Nobody in the explaining team may see it, and in the classic mode nobody else either.
             val sees = me != null && (me.id == explainer || canWatch(me.id))
             if (cur != null && sees && (phase == Phase.TURN || phase == Phase.LAST)) {
-                o.put("card", JSONObject().put("w", cur.word.w).put("taboo", JSONArray(if (taboo) cur.word.taboo else emptyList()))
-                    .also { c -> if (cur.word.e.isNotEmpty()) c.put("e", cur.word.e) })
+                o.put("card", JSONObject().put("w", cur.word.w).put("taboo", JSONArray(if (taboo) cur.word.taboo else emptyList())))
             }
+        }
+
+        if (phase == Phase.CARDS) kidsCard?.let { c ->
+            // the same picture for everybody, the TV included
+            o.put("cards", JSONObject().put("w", c.w).put("e", c.e).put("got", kidsGot).put("seen", kidsSeen))
         }
 
         lastTurn?.let { l ->
             o.put("lastTurn", JSONObject().put("team", l.team).put("explainer", l.explainer).put("delta", l.delta).put("lastBy", l.lastBy)
-                .put("words", JSONArray(l.words.map { (w, m) -> wordJson(w, markName(m), emojiOf(w)) })))
+                .put("words", JSONArray(l.words.map { (w, m) -> JSONObject().put("w", w).put("mark", markName(m)) })))
         }
         if (phase == Phase.FINAL) o.put("winner", winner ?: JSONObject.NULL)
         return o

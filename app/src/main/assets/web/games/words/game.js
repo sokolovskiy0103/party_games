@@ -40,12 +40,15 @@
   // ---------- pieces ----------
   function rulesCard() {
     const s = g();
+    if (s.kids) return `<div class="card stack small">
+      <div>🧸 <b>Дитячі картки.</b> На екрані — велика картинка зі словом. Подивіться, назвіть, що це, або вгадайте. Без команд, без таймера — можна грати й одному.</div>
+      <div>✓ вгадали — рахується · ⏭ інша — просто наступна картка.</div>
+    </div>`;
     return `<div class="card stack small">
       <div><b>Як грати.</b> Пояснювач бачить слово й пояснює його своїй команді, не називаючи самого слова й спільнокореневих. За хід — якомога більше слів.</div>
       <div>✓ вгадали — +1${s.skipPenalty ? ' · ⏭ пропуск — −1' : ' · ⏭ пропуск — 0'}${s.taboo ? ' · 🚨 сказав заборонене — −1' : ''}</div>
       ${s.taboo ? '<div>🚫 <b>Табу:</b> на картці ще 5 заборонених слів. Суперники бачать картку й тиснуть «Табу!», якщо почули заборонене.</div>' : ''}
       ${s.lastForAll ? '<div>⏰ Останнє слово, коли скінчився час, може вгадати будь-яка команда.</div>' : ''}
-      ${s.kids ? '<div>🧸 <b>Дитячий режим:</b> біля слова є велика картинка — можна пояснювати, не вміючи читати. Слова легкі: тварини, їжа, іграшки, транспорт.</div>' : ''}
       ${s.battle ? '<div>⚔️ <b>Хлопці проти дівчат:</b> хлопці пояснюють «жіночі» слова, дівчата — «чоловічі».</div>' : ''}
       <div class="muted">Виграє команда, що першою набрала ${s.goal} — коли всі команди зіграли порівну ходів.</div>
     </div>`;
@@ -69,7 +72,7 @@
     if (!list || !list.length) return '';
     return `<div class="chips said">${list.map((x, i) => {
       const m = MARK[x.mark];
-      return `<span class="chip ${x.mark || 'open'}" data-k="w${i}">${m ? `<span class="${m.cls}">${m.icon}</span>` : '⏰'} ${x.e ? `<span class="pic">${x.e}</span> ` : ''}${esc(x.w)}</span>`;
+      return `<span class="chip ${x.mark || 'open'}" data-k="w${i}">${m ? `<span class="${m.cls}">${m.icon}</span>` : '⏰'} ${esc(x.w)}</span>`;
     }).join('')}</div>`;
   }
 
@@ -142,21 +145,21 @@
           <button class="${s.taboo ? 'on' : ''}" data-act="mode" data-v="taboo">🚫 Табу</button>
           <button class="${s.kids ? 'on' : ''}" data-act="mode" data-v="kids">🧸 Дитячий</button>
         </div>
-        <div class="muted small">${s.kids ? 'Біля слова — велика картинка, тож грати можуть і діти, які ще не вміють читати. Слова прості, час і рахунок — м\'якші.' : s.taboo ? 'На картці 5 заборонених слів. Суперники бачать картку й ловлять порушення.' : 'Пояснюй як завгодно, тільки не називай слово й спільнокореневі.'}</div>
+        <div class="muted small">${s.kids ? 'Картки з великою картинкою для дітей, які ще не вміють читати. Без команд і таймера, грати можна й одному.' : s.taboo ? 'На картці 5 заборонених слів. Суперники бачать картку й ловлять порушення.' : 'Пояснюй як завгодно, тільки не називай слово й спільнокореневі.'}</div>
         ${s.kids ? '' : `<label class="toggle"><input type="checkbox" class="switch" data-act="set" data-k="battle" ${s.battle ? 'checked' : ''}>
           <span>⚔️ Хлопці проти дівчат <span class="muted small">(хлопці пояснюють «жіночі» слова, дівчата — «чоловічі»)</span></span></label>`}
-        ${s.kids ? `<div class="muted small">🧸 ${words(s.kidsWords)} з картинками: тварини, їжа, іграшки, транспорт, природа. Теми нижче не діють.</div>` : s.battle ? `<div class="muted small">По ${s.battleWords} слів на кожну сторону. Теми нижче не діють.</div>` : `
+        ${s.kids ? `<div class="muted small">🧸 ${words(s.kidsWords)} з картинками: тварини, їжа, іграшки, транспорт, природа.</div>` : s.battle ? `<div class="muted small">По ${s.battleWords} слів на кожну сторону. Теми нижче не діють.</div>` : `
         <b>Теми</b>
         <div class="chips">${(s.themeList || []).map(t => `<button class="chip ${s.themes.indexOf(t.id) >= 0 ? 'on' : ''}" data-act="theme" data-v="${t.id}" ${t.n ? '' : 'disabled'}>${t.emoji} ${esc(t.title)} <span class="small">${t.n}</span></button>`).join('')}</div>
         <div class="muted small">Обрано ${words(total)}.</div>`}
-        <b>Час ходу</b>
+        ${s.kids ? '' : `<b>Час ходу</b>
         <div class="chips">${chips('seconds', [30, 45, 60, 90, 120], s.seconds, v => v + ' с')}</div>
         <b>Граємо до</b>
         <div class="chips">${chips('goal', [20, 30, 40, 60, 80, 100], s.goal, v => v)}</div>
         <label class="toggle"><input type="checkbox" class="switch" data-act="set" data-k="skipPenalty" ${s.skipPenalty ? 'checked' : ''}>
           <span>Пропуск — мінус очко</span></label>
         <label class="toggle"><input type="checkbox" class="switch" data-act="set" data-k="lastForAll" ${s.lastForAll ? 'checked' : ''}>
-          <span>Останнє слово — для всіх <span class="muted small">(коли скінчився час, вгадати може будь-хто)</span></span></label>
+          <span>Останнє слово — для всіх <span class="muted small">(коли скінчився час, вгадати може будь-хто)</span></span></label>`}
       </div>`;
     } else {
       h += ui.wait('Хост налаштовує гру', '👑');
@@ -165,7 +168,7 @@
     h += `<h2>Гравці · ${n}</h2><div class="card"><div class="chips">${s.players.map(p =>
       `<span class="chip" data-k="${esc(p.id)}"><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}</span>`).join('')}</div></div>`;
     if (api.isHost) {
-      h += `<button class="big" data-act="toTeams" ${enough ? '' : 'disabled'}>Ділимось на команди</button>`;
+      h += `<button class="big" data-act="toTeams" ${enough ? '' : 'disabled'}>${s.kids ? '▶ Грати' : 'Ділимось на команди'}</button>`;
       if (!enough) h += `<div class="muted small center">Потрібно щонайменше ${s.minPlayers} гравці (зараз ${n}).</div>`;
     }
     return h;
@@ -251,6 +254,16 @@
     return { html: h, bar };
   }
 
+  /** Kids mode: one big picture for everybody; whoever holds a phone flips it. */
+  function cardsView() {
+    const c = g().cards;
+    if (!c) return '';
+    const h = `<div class="center"><span class="tag accent">🧸 вгадано ${c.got} · карток ${c.seen}</span></div>${cueCard(c)}`;
+    const bar = `<div class="words-bar"><button class="soft skip" data-act="knext">⏭ Інша</button>` +
+      `<button class="good got" data-act="kgot">✓ Вгадали</button></div>`;
+    return { html: h, bar };
+  }
+
   function lastView() {
     const s = g();
     const t = turn();
@@ -285,10 +298,10 @@
     h += `<div class="card wlist">${t.words.map((x, i) => {
       const m = MARK[x.mark];
       return `<div class="li wrow ${x.mark} ${edit ? 'edit' : ''}" data-k="r${i}" ${edit ? `data-act="mark" data-i="${i}" data-m="${x.mark}"` : ''}>
-        <span class="name">${x.e ? `<span class="pic">${x.e}</span> ` : ''}${esc(x.w)}</span><span class="mk ${m.cls}">${m.icon} ${m.label}</span></div>`;
+        <span class="name">${esc(x.w)}</span><span class="mk ${m.cls}">${m.icon} ${m.label}</span></div>`;
     }).join('') || '<div class="muted center small">Жодного слова</div>'}</div>`;
     if (t.last) {
-      h += `<h2>⏰ Останнє слово: <span class="c-accent">${t.lastE ? t.lastE + ' ' : ''}${esc(t.last)}</span></h2>`;
+      h += `<h2>⏰ Останнє слово: <span class="c-accent">${esc(t.last)}</span></h2>`;
       const opts = s.lastForAll ? s.teams.filter(x => x.members.length).map(x => x.idx) : [t.team];
       h += `<div class="chips">${opts.map(i => edit
         ? `<button class="chip ${t.lastBy === i ? 'on' : ''}" data-act="lastBy" data-v="${i}">${team(i).emoji} ${esc(team(i).name)}</button>`
@@ -331,6 +344,11 @@
     return `<div class="tv-split"><div class="stack">${main}</div><div class="stack"><h2>Рахунок</h2>${scoreboard()}</div></div>`;
   }
 
+  function tvCards() {
+    const c = g().cards;
+    return c ? `<div class="center"><span class="tag accent">🧸 вгадано ${c.got} · карток ${c.seen}</span></div>${cueCard(c)}` : '';
+  }
+
   function tvTurn() {
     const s = g();
     const t = turn();
@@ -347,7 +365,7 @@
   function tvReview() {
     const t = turn();
     const main = onAir(false) + `<div class="result ${t.delta > 0 ? 'up' : t.delta < 0 ? 'down' : ''}"><b data-k="d${t.delta}">${signed(t.delta)}</b><span>за хід</span></div>`
-      + wordChips(t.words.concat(t.last ? [{ w: t.last, e: t.lastE, mark: null }] : []))
+      + wordChips(t.words.concat(t.last ? [{ w: t.last, mark: null }] : []))
       + (t.last && t.lastBy >= 0 ? `<div class="center">⏰ Останнє слово — ${teamTag(t.lastBy)}</div>` : '');
     return tvSplit(main);
   }
@@ -370,13 +388,14 @@
       case 'LAST': return lastView();
       case 'REVIEW': return reviewView();
       case 'FINAL': return finalView();
+      case 'CARDS': return cardsView();
     }
     return '';
   }
 
   PG.register('words', {
     // the explainer has to be heard; people argue over the review
-    music: { TEAMS: 'low', READY: 'low', TURN: 'off', LAST: 'off', REVIEW: 'low' },
+    music: { TEAMS: 'low', READY: 'low', TURN: 'off', LAST: 'off', REVIEW: 'low', CARDS: 'low' },
     musicLoop: 68.5714,  // seconds of music.mp3 that loop: a whole number of bars (32 bars at 112 BPM)
     bg: 'loop',  // games/words/bg.webm|mp4 (phone), bg-tv.* (TV); bg.webp is the poster
     sfx: ['bleep'],  // own effect: the TV censor bleep for a forbidden word (sfx/bleep.mp3)
@@ -399,6 +418,7 @@
         case 'READY': case 'TURN': case 'LAST': out = tvTurn(); break;
         case 'REVIEW': out = tvReview(); break;
         case 'FINAL': out = tvFinal(); break;
+        case 'CARDS': out = tvCards(); break;
       }
       return out && `<div class="words is-${s.phase.toLowerCase()}">${out}</div>`;  // null before the game: the TV shows the room
     },
@@ -410,7 +430,7 @@
       const myT = next.me ? next.me.team : null;
       if (prev.phase !== next.phase) {
         if (next.phase === 'READY' && mine) { a.vibrate([90, 60, 90]); a.sfx('your_turn'); }
-        else if (next.phase === 'TURN') a.sfx('whoosh');
+        else if (next.phase === 'TURN' || next.phase === 'CARDS') a.sfx('whoosh');
         else if (next.phase === 'LAST') a.vibrate([200, 100, 200]);
         else if (next.phase === 'REVIEW') a.sfx('reveal');
         else if (next.phase === 'FINAL') {
@@ -418,6 +438,12 @@
           if (next.winner != null && myT === next.winner) a.vibrate([80, 50, 80, 50, 200]);
         }
         if (next.phase === 'READY' && next.notice && next.notice !== prev.notice) a.sfx('suspense');
+        return;
+      }
+      // kids cards: a new picture, or one guessed
+      if (next.phase === 'CARDS' && prev.cards && next.cards) {
+        if (next.cards.got > prev.cards.got) a.sfx('correct');
+        else if (next.cards.seen > prev.cards.seen) a.sfx('card');
         return;
       }
       // within a turn: guessed, skipped, caught on a forbidden word
@@ -468,6 +494,8 @@
           return a.send({ t: 'mark', i: +el.dataset.i, m: (g().taboo ? NEXT_MARK_TABOO : NEXT_MARK)[m] || 'GOT' });
         }
         case 'confirm': return a.send({ t: 'confirm' });
+        case 'kgot': a.vibrate(30); return a.send({ t: 'kidsGot' });
+        case 'knext': return a.send({ t: 'kidsNext' });
         case 'newGame': return a.send({ t: 'newGame' });
       }
     },

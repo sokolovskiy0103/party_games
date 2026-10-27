@@ -9,7 +9,7 @@ import org.json.JSONObject
 class WordsModule : GameModule {
     override val id = "words"
     override val title = "Скажи інакше"
-    override val subtitle = "Пояснюй слова команді на час: класика, табу, хлопці проти дівчат або дитячий режим з картинками"
+    override val subtitle = "Пояснюй слова команді на час: класика, табу, хлопці проти дівчат. Або дитячі картки з картинками — і вдвох, і наодинці"
     override val minPlayers = Game.MIN_PLAYERS
     override val emoji = "🗣️"
 
@@ -51,6 +51,9 @@ class WordsModule : GameModule {
                 "mark" -> if (canRun) Game.Mark.entries.firstOrNull { it.name == msg.optString("m") }?.let { game.mark(msg.optInt("i", -1), it) }
                 "lastBy" -> if (canRun) game.setLastBy(msg.optInt("by", -1))
                 "confirm" -> if (canRun) game.confirm()
+                // kids mode: whoever holds a phone can flip the card
+                "kidsGot" -> game.kidsNext(true)
+                "kidsNext" -> game.kidsNext(false)
             }
             if (isHost) when (msg.optString("t")) {
                 "settings" -> if (game.phase == Game.Phase.LOBBY) {

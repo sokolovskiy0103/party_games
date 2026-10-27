@@ -265,19 +265,48 @@ class GameTest {
         assertEquals(team, g.turnTeam)
         assertNotEquals(ex, g.explainer)
     }
-    @Test fun kidsModeDealsPictureWordsFromItsOwnBank() {
-        val (g, _) = started { setMode("kids") }
-        assertTrue(g.kids)
-        val ex = g.explainer!!
-        assertTrue(g.beginTurn(0))
-        val card = g.stateJson(ex, false, 0).getJSONObject("card")
-        assertTrue(card.getString("w").startsWith("kid"))
-        assertEquals("🐱", card.getString("e"))
-        assertEquals(0, card.getJSONArray("taboo").length())
-        assertFalse(g.stateJson(g.teammateOf(ex), false, 0).has("card"))
-        g.got()
-        val words = g.stateJson(ex, false, 0).getJSONObject("turn").getJSONArray("words")
-        assertEquals("🐱", words.getJSONObject(0).getString("e"))
+    @Test fun kidsModePlaysAloneWithoutTeamsOrClock() {
+        val g = Game(banks, Random(3))
+        g.add("p1", "P1")
+        assertFalse(g.canStart())
+        assertTrue(g.setMode("kids"))
+        assertTrue(g.canStart())
+        assertEquals(1, g.stateJson("p1", true, 0).getInt("minPlayers"))
+        assertTrue(g.toTeams())
+        assertEquals(Game.Phase.CARDS, g.phase)
+        assertTrue(g.teams.isEmpty())
+        fun cards() = g.stateJson("p1", true, 0).getJSONObject("cards")
+        assertTrue(cards().getString("w").startsWith("kid"))
+        assertEquals("🐱", cards().getString("e"))
+        assertEquals(0, cards().getInt("got"))
+        assertEquals(1, cards().getInt("seen"))
+        assertTrue(g.kidsNext(true))
+        assertTrue(g.kidsNext(false))
+        assertEquals(1, cards().getInt("got"))
+        assertEquals(3, cards().getInt("seen"))
+    }
+
+    @Test fun kidsCardsAreTheSameForEveryoneIncludingTheBoard() {
+        val (g, ids) = game(2)
+        g.setMode("kids")
+        assertTrue(g.toTeams())
+        val w = g.stateJson(ids[0], false, 0).getJSONObject("cards").getString("w")
+        assertEquals(w, g.stateJson(ids[1], false, 0).getJSONObject("cards").getString("w"))
+        assertEquals(w, g.stateJson(null, false, 0).getJSONObject("cards").getString("w"))
+    }
+
+    @Test fun kidsCardsNeverRepeatBackToBackAndRestartAtTheEndOfTheDeck() {
+        val g = Game(banks, Random(5))
+        g.add("p1", "P1")
+        g.setMode("kids")
+        g.toTeams()
+        var prev = g.stateJson("p1", true, 0).getJSONObject("cards").getString("w")
+        repeat(60) {
+            assertTrue(g.kidsNext(false))
+            val cur = g.stateJson("p1", true, 0).getJSONObject("cards").getString("w")
+            assertNotEquals(prev, cur)
+            prev = cur
+        }
     }
 
     @Test fun kidsModeIsExclusiveWithTabooAndBattle() {
@@ -285,7 +314,6 @@ class GameTest {
         g.setMode("taboo"); g.battle = true
         g.setMode("kids")
         assertTrue(g.kids); assertFalse(g.taboo); assertFalse(g.battle)
-        assertEquals(10, g.goal); assertEquals(90, g.turnSeconds); assertFalse(g.skipPenalty)
         g.setMode("taboo")
         assertTrue(g.taboo); assertFalse(g.kids)
         g.setMode("classic")
@@ -293,10 +321,14 @@ class GameTest {
         assertFalse(g.setMode("nonsense"))
     }
 
-    @Test fun pictureSurvivesInTheLastTurnLog() {
-        val (g, _) = started { setMode("kids") }
-        g.playTurn(0, got = 2)
-        val l = g.stateJson(null, false, 0).getJSONObject("lastTurn").getJSONArray("words")
-        assertEquals("🐱", l.getJSONObject(0).getString("e"))
+    @Test fun kidsCardsCannotBeFlippedOutsideTheCardsPhaseAndNewGameResets() {
+        val (g, _) = game(2)
+        assertFalse(g.kidsNext(true))
+        g.setMode("kids")
+        g.toTeams()
+        g.newGame()
+        assertEquals(Game.Phase.LOBBY, g.phase)
+        assertFalse(g.stateJson("p1", true, 0).has("cards"))
+        assertFalse(g.kidsNext(true))
     }
 }
