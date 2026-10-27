@@ -45,6 +45,7 @@
       <div>✓ вгадали — +1${s.skipPenalty ? ' · ⏭ пропуск — −1' : ' · ⏭ пропуск — 0'}${s.taboo ? ' · 🚨 сказав заборонене — −1' : ''}</div>
       ${s.taboo ? '<div>🚫 <b>Табу:</b> на картці ще 5 заборонених слів. Суперники бачать картку й тиснуть «Табу!», якщо почули заборонене.</div>' : ''}
       ${s.lastForAll ? '<div>⏰ Останнє слово, коли скінчився час, може вгадати будь-яка команда.</div>' : ''}
+      ${s.kids ? '<div>🧸 <b>Дитячий режим:</b> біля слова є велика картинка — можна пояснювати, не вміючи читати. Слова легкі: тварини, їжа, іграшки, транспорт.</div>' : ''}
       ${s.battle ? '<div>⚔️ <b>Хлопці проти дівчат:</b> хлопці пояснюють «жіночі» слова, дівчата — «чоловічі».</div>' : ''}
       <div class="muted">Виграє команда, що першою набрала ${s.goal} — коли всі команди зіграли порівну ходів.</div>
     </div>`;
@@ -68,7 +69,7 @@
     if (!list || !list.length) return '';
     return `<div class="chips said">${list.map((x, i) => {
       const m = MARK[x.mark];
-      return `<span class="chip ${x.mark || 'open'}" data-k="w${i}">${m ? `<span class="${m.cls}">${m.icon}</span>` : '⏰'} ${esc(x.w)}</span>`;
+      return `<span class="chip ${x.mark || 'open'}" data-k="w${i}">${m ? `<span class="${m.cls}">${m.icon}</span>` : '⏰'} ${x.e ? `<span class="pic">${x.e}</span> ` : ''}${esc(x.w)}</span>`;
     }).join('')}</div>`;
   }
 
@@ -95,9 +96,9 @@
   function cueCard(c, opts = {}) {
     const taboo = c.taboo && c.taboo.length
       ? `<div class="forbid"><div class="flabel">Не можна казати</div>${c.taboo.map((t, i) => `<div class="fw" style="--d:${120 + i * 50}ms">${esc(t)}</div>`).join('')}</div>` : '';
-    return `<div class="cue ${opts.hot ? 'hot' : ''} ${c.taboo && c.taboo.length ? 'has-taboo' : ''}" data-k="cue-${esc(c.w)}">
+    return `<div class="cue ${opts.hot ? 'hot' : ''} ${c.taboo && c.taboo.length ? 'has-taboo' : ''} ${c.e ? 'has-pic' : ''}" data-k="cue-${esc(c.w)}">
       ${opts.watching ? '<div class="watch">👀 Стеж, щоб не прозвучало заборонене</div>' : ''}
-      <div class="cw">${esc(c.w)}</div>${taboo}</div>`;
+      ${c.e ? `<div class="ce">${c.e}</div>` : ''}<div class="cw">${esc(c.w)}</div>${taboo}</div>`;
   }
 
   function timerHtml(big) {
@@ -137,13 +138,14 @@
       h += `<div class="card stack">
         <b>Режим</b>
         <div class="seg">
-          <button class="${s.taboo ? '' : 'on'}" data-act="set" data-k="taboo" data-v="0">🗣️ Класика</button>
-          <button class="${s.taboo ? 'on' : ''}" data-act="set" data-k="taboo" data-v="1">🚫 Табу</button>
+          <button class="${!s.taboo && !s.kids ? 'on' : ''}" data-act="mode" data-v="classic">🗣️ Класика</button>
+          <button class="${s.taboo ? 'on' : ''}" data-act="mode" data-v="taboo">🚫 Табу</button>
+          <button class="${s.kids ? 'on' : ''}" data-act="mode" data-v="kids">🧸 Дитячий</button>
         </div>
-        <div class="muted small">${s.taboo ? 'На картці 5 заборонених слів. Суперники бачать картку й ловлять порушення.' : 'Пояснюй як завгодно, тільки не називай слово й спільнокореневі.'}</div>
-        <label class="toggle"><input type="checkbox" class="switch" data-act="set" data-k="battle" ${s.battle ? 'checked' : ''}>
-          <span>⚔️ Хлопці проти дівчат <span class="muted small">(хлопці пояснюють «жіночі» слова, дівчата — «чоловічі»)</span></span></label>
-        ${s.battle ? `<div class="muted small">По ${s.battleWords} слів на кожну сторону. Теми нижче не діють.</div>` : `
+        <div class="muted small">${s.kids ? 'Біля слова — велика картинка, тож грати можуть і діти, які ще не вміють читати. Слова прості, час і рахунок — м\'якші.' : s.taboo ? 'На картці 5 заборонених слів. Суперники бачать картку й ловлять порушення.' : 'Пояснюй як завгодно, тільки не називай слово й спільнокореневі.'}</div>
+        ${s.kids ? '' : `<label class="toggle"><input type="checkbox" class="switch" data-act="set" data-k="battle" ${s.battle ? 'checked' : ''}>
+          <span>⚔️ Хлопці проти дівчат <span class="muted small">(хлопці пояснюють «жіночі» слова, дівчата — «чоловічі»)</span></span></label>`}
+        ${s.kids ? `<div class="muted small">🧸 ${words(s.kidsWords)} з картинками: тварини, їжа, іграшки, транспорт, природа. Теми нижче не діють.</div>` : s.battle ? `<div class="muted small">По ${s.battleWords} слів на кожну сторону. Теми нижче не діють.</div>` : `
         <b>Теми</b>
         <div class="chips">${(s.themeList || []).map(t => `<button class="chip ${s.themes.indexOf(t.id) >= 0 ? 'on' : ''}" data-act="theme" data-v="${t.id}" ${t.n ? '' : 'disabled'}>${t.emoji} ${esc(t.title)} <span class="small">${t.n}</span></button>`).join('')}</div>
         <div class="muted small">Обрано ${words(total)}.</div>`}
@@ -283,10 +285,10 @@
     h += `<div class="card wlist">${t.words.map((x, i) => {
       const m = MARK[x.mark];
       return `<div class="li wrow ${x.mark} ${edit ? 'edit' : ''}" data-k="r${i}" ${edit ? `data-act="mark" data-i="${i}" data-m="${x.mark}"` : ''}>
-        <span class="name">${esc(x.w)}</span><span class="mk ${m.cls}">${m.icon} ${m.label}</span></div>`;
+        <span class="name">${x.e ? `<span class="pic">${x.e}</span> ` : ''}${esc(x.w)}</span><span class="mk ${m.cls}">${m.icon} ${m.label}</span></div>`;
     }).join('') || '<div class="muted center small">Жодного слова</div>'}</div>`;
     if (t.last) {
-      h += `<h2>⏰ Останнє слово: <span class="c-accent">${esc(t.last)}</span></h2>`;
+      h += `<h2>⏰ Останнє слово: <span class="c-accent">${t.lastE ? t.lastE + ' ' : ''}${esc(t.last)}</span></h2>`;
       const opts = s.lastForAll ? s.teams.filter(x => x.members.length).map(x => x.idx) : [t.team];
       h += `<div class="chips">${opts.map(i => edit
         ? `<button class="chip ${t.lastBy === i ? 'on' : ''}" data-act="lastBy" data-v="${i}">${team(i).emoji} ${esc(team(i).name)}</button>`
@@ -345,7 +347,7 @@
   function tvReview() {
     const t = turn();
     const main = onAir(false) + `<div class="result ${t.delta > 0 ? 'up' : t.delta < 0 ? 'down' : ''}"><b data-k="d${t.delta}">${signed(t.delta)}</b><span>за хід</span></div>`
-      + wordChips(t.words.concat(t.last ? [{ w: t.last, mark: null }] : []))
+      + wordChips(t.words.concat(t.last ? [{ w: t.last, e: t.lastE, mark: null }] : []))
       + (t.last && t.lastBy >= 0 ? `<div class="center">⏰ Останнє слово — ${teamTag(t.lastBy)}</div>` : '');
     return tvSplit(main);
   }
@@ -445,6 +447,7 @@
           const on = el.type === 'checkbox' ? el.checked : v === '1';
           return a.send({ t: 'settings', [el.dataset.k]: on });
         }
+        case 'mode': return a.send({ t: 'settings', mode: v });
         case 'theme': return a.send({ t: 'theme', id: v });
         case 'seconds': return a.send({ t: 'settings', seconds: +v });
         case 'goal': return a.send({ t: 'settings', goal: +v });

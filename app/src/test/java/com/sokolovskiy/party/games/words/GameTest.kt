@@ -15,6 +15,7 @@ class GameTest {
     private val banks = mapOf(
         "basic" to bank("basic"), "medium" to bank("medium"), "food" to bank("food"),
         "male" to bank("male"), "female" to bank("female"),
+        Game.KIDS_BANK to (1..20).map { Game.Word("kid$it", emptyList(), "🐱") },
     )
 
     private fun game(n: Int = 4): Pair<Game, List<String>> {
@@ -263,5 +264,39 @@ class GameTest {
         assertEquals(Game.Phase.READY, g.phase)
         assertEquals(team, g.turnTeam)
         assertNotEquals(ex, g.explainer)
+    }
+    @Test fun kidsModeDealsPictureWordsFromItsOwnBank() {
+        val (g, _) = started { setMode("kids") }
+        assertTrue(g.kids)
+        val ex = g.explainer!!
+        assertTrue(g.beginTurn(0))
+        val card = g.stateJson(ex, false, 0).getJSONObject("card")
+        assertTrue(card.getString("w").startsWith("kid"))
+        assertEquals("🐱", card.getString("e"))
+        assertEquals(0, card.getJSONArray("taboo").length())
+        assertFalse(g.stateJson(g.teammateOf(ex), false, 0).has("card"))
+        g.got()
+        val words = g.stateJson(ex, false, 0).getJSONObject("turn").getJSONArray("words")
+        assertEquals("🐱", words.getJSONObject(0).getString("e"))
+    }
+
+    @Test fun kidsModeIsExclusiveWithTabooAndBattle() {
+        val (g, _) = game()
+        g.setMode("taboo"); g.battle = true
+        g.setMode("kids")
+        assertTrue(g.kids); assertFalse(g.taboo); assertFalse(g.battle)
+        assertEquals(10, g.goal); assertEquals(90, g.turnSeconds); assertFalse(g.skipPenalty)
+        g.setMode("taboo")
+        assertTrue(g.taboo); assertFalse(g.kids)
+        g.setMode("classic")
+        assertFalse(g.taboo); assertFalse(g.kids)
+        assertFalse(g.setMode("nonsense"))
+    }
+
+    @Test fun pictureSurvivesInTheLastTurnLog() {
+        val (g, _) = started { setMode("kids") }
+        g.playTurn(0, got = 2)
+        val l = g.stateJson(null, false, 0).getJSONObject("lastTurn").getJSONArray("words")
+        assertEquals("🐱", l.getJSONObject(0).getString("e"))
     }
 }

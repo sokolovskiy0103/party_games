@@ -19,6 +19,8 @@ import kotlin.random.Random
  *
  * In the taboo mode the other teams see the word with its forbidden words and can call a foul.
  * In the battle mode «Хлопці» explain the «female» bank and «Дівчата» the «male» one.
+ * In the kids mode (for children who cannot read yet) the card shows a big picture (an emoji) with the word,
+ * the words come from the `kidspics` bank: easy things (animals, food, toys, transport…), no taboo, no battle.
  */
 class Game(
     private val banks: Map<String, List<Word>>,
@@ -27,7 +29,8 @@ class Game(
     enum class Phase { LOBBY, TEAMS, READY, TURN, LAST, REVIEW, FINAL }
     enum class Mark { GOT, SKIP, FOUL }
 
-    class Word(val w: String, val taboo: List<String>)
+    /** [e] is the picture of the word (an emoji), empty if it has none. */
+    class Word(val w: String, val taboo: List<String>, val e: String = "")
 
     class Player(val id: String, var name: String) {
         var connected = false
@@ -69,6 +72,8 @@ class Game(
     var lastForAll = true
     /** Two fixed teams, boys and girls, each explaining the other side's words. */
     var battle = false
+    /** Picture cards with easy words for children who cannot read yet. */
+    var kids = false
     val themes = linkedSetOf("basic", "medium")
 
     // ---- game ----
@@ -125,6 +130,21 @@ class Game(
         return true
     }
 
+    /** The host's mode: classic, taboo or kids (kids gets calmer defaults: no skip penalty, 90 s, 10 points). */
+    fun setMode(mode: String): Boolean {
+        if (phase != Phase.LOBBY) return false
+        when (mode) {
+            "classic" -> { taboo = false; kids = false }
+            "taboo" -> { taboo = true; kids = false }
+            "kids" -> {
+                if (!kids) { skipPenalty = false; turnSeconds = 90; goal = 10 }
+                kids = true; taboo = false; battle = false
+            }
+            else -> return false
+        }
+        return true
+    }
+
     // ---------- teams ----------
 
     fun maxTeams() = (players.size / 2).coerceIn(2, MAX_TEAMS)
@@ -133,7 +153,7 @@ class Game(
     fun toTeams(): Boolean {
         if (phase != Phase.LOBBY || !canStart()) return false
         notice = null
-        if (battle) {
+        if (battle && !kids) {
             teams.clear()
             BATTLE_TEAMS.forEachIndexed { i, (emoji, name) -> teams += Team(i, name, emoji) }
             players.values.forEach { it.team = null }
@@ -203,7 +223,11 @@ class Game(
     // ---------- words ----------
 
     /** Which bank a team explains: the opposite side's in the battle mode, the chosen themes otherwise. */
-    private fun deckKey(team: Int) = if (battle) (if (team == 0) "female" else "male") else ""
+    private fun deckKey(team: Int) = if (kids) KIDS_BANK else if (battle) (if (team == 0) "female" else "male") else ""
+
+    /** The picture of a word, looked up by its text (turn logs only keep the text). */
+    private fun emojiOf(w: String): String =
+        (banks[KIDS_BANK].orEmpty() + banks.values.flatten()).firstOrNull { it.w == w && it.e.isNotEmpty() }?.e.orEmpty()
 
     private fun fill(key: String): ArrayDeque<Word> {
         val ids = if (key.isEmpty()) themes.toList() else listOf(key)
@@ -394,6 +418,9 @@ class Game(
 
     private fun markName(m: Mark?) = m?.name ?: JSONObject.NULL
 
+    private fun wordJson(w: String, mark: Any, e: String) =
+        JSONObject().put("w", w).put("mark", mark).also { if (e.isNotEmpty()) it.put("e", e) }
+
     fun stateJson(viewer: String?, isHost: Boolean, now: Long): JSONObject {
         val o = JSONObject()
         o.put("phase", phase.name)
@@ -404,6 +431,7 @@ class Game(
         o.put("taboo", taboo)
         o.put("lastForAll", lastForAll)
         o.put("battle", battle)
+        o.put("kids", kids)
         o.put("themes", JSONArray(themes.toList()))
         o.put("minPlayers", MIN_PLAYERS)
         o.put("maxTeams", maxTeams())
@@ -412,6 +440,7 @@ class Game(
             o.put("themeList", JSONArray(THEMES.map { t ->
                 JSONObject().put("id", t.id).put("title", t.title).put("emoji", t.emoji).put("n", banks[t.id].orEmpty().size)
             }))
+            o.put("kidsWords", banks[KIDS_BANK].orEmpty().size)
             o.put("battleWords", banks["male"].orEmpty().size.coerceAtMost(banks["female"].orEmpty().size))
         }
 
@@ -440,24 +469,25 @@ class Game(
                 .put("skips", done.count { it.mark == Mark.SKIP })
                 .put("fouls", done.count { it.mark == Mark.FOUL })
                 // finished words were said out loud anyway
-                .put("words", JSONArray(done.map { JSONObject().put("w", it.word.w).put("mark", markName(it.mark)) }))
+                .put("words", JSONArray(done.map { wordJson(it.word.w, markName(it.mark), it.word.e) }))
                 .put("delta", turnDelta())
             if (phase == Phase.REVIEW) {
                 turn.put("lastBy", lastBy)
-                cur?.let { turn.put("last", it.word.w) }
+                cur?.let { turn.put("last", it.word.w); if (it.word.e.isNotEmpty()) turn.put("lastE", it.word.e) }
             }
             o.put("turn", turn)
             // The word on screen: the explainer, plus the other teams when they watch for taboo words.
             // Nobody in the explaining team may see it, and in the classic mode nobody else either.
             val sees = me != null && (me.id == explainer || canWatch(me.id))
             if (cur != null && sees && (phase == Phase.TURN || phase == Phase.LAST)) {
-                o.put("card", JSONObject().put("w", cur.word.w).put("taboo", JSONArray(if (taboo) cur.word.taboo else emptyList())))
+                o.put("card", JSONObject().put("w", cur.word.w).put("taboo", JSONArray(if (taboo) cur.word.taboo else emptyList()))
+                    .also { c -> if (cur.word.e.isNotEmpty()) c.put("e", cur.word.e) })
             }
         }
 
         lastTurn?.let { l ->
             o.put("lastTurn", JSONObject().put("team", l.team).put("explainer", l.explainer).put("delta", l.delta).put("lastBy", l.lastBy)
-                .put("words", JSONArray(l.words.map { (w, m) -> JSONObject().put("w", w).put("mark", markName(m)) })))
+                .put("words", JSONArray(l.words.map { (w, m) -> wordJson(w, markName(m), emojiOf(w)) })))
         }
         if (phase == Phase.FINAL) o.put("winner", winner ?: JSONObject.NULL)
         return o
@@ -489,7 +519,9 @@ class Game(
             Theme("kids", "Для дітей", "🧸"),
             Theme("party", "18+", "🔥"),
         )
-        val BANKS = THEMES.map { it.id } + listOf("male", "female")
+        /** Picture words for the kids mode; not a theme the host can pick. */
+        const val KIDS_BANK = "kidspics"
+        val BANKS = THEMES.map { it.id } + listOf("male", "female", KIDS_BANK)
 
         val BATTLE_TEAMS = listOf("🧔" to "Хлопці", "👩" to "Дівчата")
         val TEAM_NAMES = listOf(

@@ -9,7 +9,7 @@ import org.json.JSONObject
 class WordsModule : GameModule {
     override val id = "words"
     override val title = "Скажи інакше"
-    override val subtitle = "Пояснюй слова команді на час: класика, табу або хлопці проти дівчат"
+    override val subtitle = "Пояснюй слова команді на час: класика, табу, хлопці проти дівчат або дитячий режим з картинками"
     override val minPlayers = Game.MIN_PLAYERS
     override val emoji = "🗣️"
 
@@ -20,7 +20,7 @@ class WordsModule : GameModule {
         return Session(Game(b), env)
     }
 
-    /** `assets/data/words-<theme>.json`: [{"w": word, "t": [five forbidden words]}]. A missing bank is just empty. */
+    /** `assets/data/words-<theme>.json`: [{"w": word, "t": [five forbidden words], "e": optional emoji picture}]. A missing bank is just empty. */
     private fun load(env: GameEnv, theme: String): List<Game.Word> {
         val text = try { env.asset("words-$theme.json") } catch (_: Exception) { return emptyList() }
         val arr = JSONArray(text)
@@ -28,7 +28,7 @@ class WordsModule : GameModule {
             val o = arr.optJSONObject(i) ?: return@mapNotNull null
             val w = o.optString("w").trim()
             val t = o.optJSONArray("t") ?: JSONArray()
-            if (w.isEmpty()) null else Game.Word(w, (0 until t.length()).map { t.getString(it).trim() }.filter { it.isNotEmpty() })
+            if (w.isEmpty()) null else Game.Word(w, (0 until t.length()).map { t.getString(it).trim() }.filter { it.isNotEmpty() }, o.optString("e").trim())
         }.distinctBy { it.w.lowercase() }
     }
 
@@ -57,9 +57,10 @@ class WordsModule : GameModule {
                     if (msg.has("seconds")) game.turnSeconds = msg.optInt("seconds")
                     if (msg.has("goal")) game.goal = msg.optInt("goal")
                     if (msg.has("skipPenalty")) game.skipPenalty = msg.optBoolean("skipPenalty")
-                    if (msg.has("taboo")) game.taboo = msg.optBoolean("taboo")
+                    if (msg.has("mode")) game.setMode(msg.optString("mode"))
+                    if (msg.has("taboo")) { game.taboo = msg.optBoolean("taboo"); if (game.taboo) game.kids = false }
                     if (msg.has("lastForAll")) game.lastForAll = msg.optBoolean("lastForAll")
-                    if (msg.has("battle")) game.battle = msg.optBoolean("battle")
+                    if (msg.has("battle")) { game.battle = msg.optBoolean("battle"); if (game.battle) game.kids = false }
                 }
                 "theme" -> game.toggleTheme(msg.optString("id"))
                 "toTeams" -> game.toTeams()
