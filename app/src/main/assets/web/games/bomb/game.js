@@ -52,6 +52,9 @@
     return `<span class="${cls}"${attrs}>${svg}<i>${idx + 1}</i></span>`;
   }
 
+  /** Every wire in this hand is cut: the panel has nothing left to show, so it is hidden. */
+  const allCut = ws => ws.length > 0 && ws.every(w => w.c);
+
   /** Wires in one row when they fit a phone, two rows otherwise. */
   const handOpen = n => `<div class="hand" style="--cols:${Math.max(n <= 14 ? n : Math.ceil(n / 2), 6)}">`;
 
@@ -115,6 +118,7 @@
   function myHand(mode) {
     const m = me();
     if (!m || !m.inGame) return `<div class="card flat center muted">Ти приєднався під час гри — зіграєш у наступній.</div>`;
+    if (allCut(m.wires)) return '';
     const show = mode === 'setup' && !m.ready;
     const last = lastIdx(m.id);
     const mine = player(m.id);
@@ -132,7 +136,7 @@
 
   function others() {
     const s = g();
-    const list = s.players.filter(p => p.inGame && !(me() && p.id === me().id));
+    const list = s.players.filter(p => p.inGame && !(me() && p.id === me().id) && !allCut(p.wires));
     if (!list.length) return '';
     const want = wantsWires();
     return `<h2>Напарники</h2><div class="stack">${list.map(p => {
