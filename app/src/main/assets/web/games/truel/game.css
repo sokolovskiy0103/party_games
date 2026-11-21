@@ -36,6 +36,8 @@ body[data-theme=truel][data-phase=OVER] #bg > * { filter: brightness(.75) satura
 .truel .pips.ammo i { width: 6px; height: 14px; border-radius: 3px 3px 1px 1px; background: linear-gradient(#f3cf7a 0 35%, #b07a2c 35%); }
 .truel .pips.ammo i:not(.on) { background: var(--muted); }
 .truel .cnt { color: var(--muted); }
+/* a price on someone's head: a gold tag that wobbles in when posted */
+.truel .tr-bounty { padding: 0 6px; border-radius: 999px; font-weight: 800; color: var(--on-accent); background: var(--accent); animation: fx-pop .4s var(--spring) backwards; }
 
 .truel .tr-table .li { transition: opacity .6s, filter .6s; }
 .truel .tr-table .li.dead { opacity: .45; filter: grayscale(.8); }

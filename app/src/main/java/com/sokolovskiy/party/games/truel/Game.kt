@@ -14,7 +14,12 @@ import kotlin.random.Random
  * (+1 bullet and a card) — and may add one card. When everyone has chosen, all moves are revealed and resolved at once,
  * so two players can shoot each other dead in the same turn.
  *
- * Resolution order: heal → jams → shots (each shot: ricochet → angel → dodge → vest → hit) → deaths → ammo boxes.
+ * Resolution order: heal → jams, bounties → shots (each shot: lightning rod → ricochet → angel → dodge → vest → hit)
+ * → a rod nobody shot at → bounty rewards, angels' rewards → deaths → reload, ammo boxes → truces.
+ *
+ * Some cards pay for helping others, so deals are worth making: an angel that stops a bullet earns its owner a point,
+ * a lightning rod needs someone to shoot its owner, a truce rewards both sides for keeping it, a bounty pays whoever
+ * carries it out.
  *
  * Points: every kill (a hit on a player who dies that turn) +1; the last one standing +[SURVIVOR_POINTS]; if the
  * showdown lasts [MAX_TURNS] turns, everyone still alive gets +1. First to reach the target ends the match after that
@@ -29,13 +34,17 @@ class Game(private val random: Random = Random.Default) {
     /** Trick cards. [target]: the card names another player. [copies]: how many are in the deck. */
     enum class Card(val target: Boolean, val copies: Int) {
         VEST(false, 3),     // 🦺 absorbs the first hit this turn (not a sniper's)
-        ANGEL(true, 2),     // 😇 another player can't be hurt this turn
+        ANGEL(true, 2),     // 😇 another player can't be hurt this turn; if that stops a bullet, the owner +1 point
         SNIPER(false, 2),   // 🎯 your shot ignores dodge and vest
         FAN(false, 2),      // 🌪️ your shot goes at every opponent, one bullet
         MIRROR(false, 2),   // 🪞 shots at you go back to the shooter
         JAM(true, 2),       // 🔧 the target's shot doesn't fire (the bullet is lost)
         MEDKIT(false, 2),   // 💊 +1 life (up to MAX_HP), before the shots
         AMMO(false, 2),     // 📦 +2 bullets at the end of the turn
+        ROD(true, 2),       // ⚡ shots at you go to the target instead, the kill stays the shooter's; nobody shoots you: -1 life
+        BOUNTY(true, 2),    // 💰 a price on the target's head until the showdown ends: whoever hits them +1 point
+        TRUCE(true, 2),     // 🤝 you and the target don't shoot each other this turn: both +1 bullet and a card;
+                            //    whoever shoots the other gets a bounty on their own head
     }
 
     class Player(val id: String, var name: String, val joinOrder: Int) {
@@ -50,6 +59,8 @@ class Game(private val random: Random = Random.Default) {
         val hand = ArrayList<Card>()
         /** Dodged last turn: may not dodge again now. */
         var tired = false
+        /** Points promised to whoever hits this player (public); cleared when paid or the showdown ends. */
+        var bounty = 0
     }
 
     /** A secret move. [target] is for SHOOT, [cardTarget] for a targeted card. */
@@ -148,7 +159,7 @@ class Game(private val random: Random = Random.Default) {
         val low = players.values.minOf { it.score }
         val behind = players.values.any { it.score != low }
         for (p in players.values) {
-            p.alive = true; p.hp = START_HP; p.ammo = START_AMMO; p.tired = false
+            p.alive = true; p.hp = START_HP; p.ammo = START_AMMO; p.tired = false; p.bounty = 0
             p.hand.clear()
             if (cardsOn) repeat(START_HAND + if (behind && p.score == low) 1 else 0) { draw(p) }
         }
@@ -225,6 +236,11 @@ class Game(private val random: Random = Random.Default) {
 
     private fun ev(k: String, a: String, b: String? = null, n: Int = 0) { events += Event(k, a, b, n) }
 
+    private fun award(pid: String, n: Int) {
+        val p = players[pid] ?: return
+        p.score += n; gains[pid] = (gains[pid] ?: 0) + n
+    }
+
     private fun resolve() {
         val alive = living()
         val mv = alive.associate { it.id to (moves[it.id] ?: Move(Act.IDLE, null, null, null)) }
@@ -243,15 +259,23 @@ class Game(private val random: Random = Random.Default) {
             ev("heal", id, n = p.hp - before)
         }
 
-        // jams
+        // jams, bounties
         val jammed = mv.filter { it.value.card == Card.JAM }.mapNotNull { it.value.cardTarget }.toSet()
         val angels = mv.filter { it.value.card == Card.ANGEL }.mapNotNull { it.value.cardTarget }.toSet()
         val vests = mv.filter { it.value.card == Card.VEST }.keys.toMutableSet()
         val mirrors = mv.filter { it.value.card == Card.MIRROR }.keys
+        val rods = mv.filter { it.value.card == Card.ROD }.mapValues { it.value.cardTarget!! }
+        for ((id, m) in mv) if (m.card == Card.BOUNTY) {
+            val t = m.cardTarget!!
+            players[t]!!.bounty++
+            ev("bounty", id, t)
+        }
 
         // shots
         val dmg = HashMap<String, Int>()
         val hitBy = HashMap<String, MutableSet<String>>()
+        val guarded = HashSet<String>()
+        val rodsShot = HashSet<String>()
         for ((id, m) in mv) {
             if (m.act != Act.SHOOT) continue
             val p = players[id]!!
@@ -261,11 +285,14 @@ class Game(private val random: Random = Random.Default) {
             val targets = if (m.card == Card.FAN) alive.map { it.id }.filter { it != id } else listOfNotNull(m.target)
             for (t0 in targets) {
                 var t = t0
-                // a ricochet turns the shot on its shooter; the kill, if any, belongs to the mirror's owner
-                if (t in mirrors) { ev("mirror", t, id); t = id }
-                val credit = if (t == id) t0 else id
+                // the kill goes to the shooter, except when their own bullet comes back: then to whoever turned it
+                var credit = id
+                // a lightning rod sends the shot on to the player its owner named
+                rods[t]?.let { r -> rodsShot += t; ev("rod", t, id); if (r == id) credit = t; t = r }
+                // a ricochet turns the shot on its shooter
+                if (t != id && t in mirrors) { ev("mirror", t, id); credit = t; t = id }
                 when {
-                    t in angels -> ev("angel", t, id)
+                    t in angels -> { guarded += t; ev("angel", t, id) }
                     !sniper && mv[t]?.act == Act.DODGE -> ev("dodge", t, id)
                     !sniper && t in vests -> { vests -= t; ev("vest", t, id) }
                     else -> {
@@ -275,6 +302,20 @@ class Game(private val random: Random = Random.Default) {
                     }
                 }
             }
+        }
+
+        // a lightning rod that drew no fire burns its owner
+        for (r in rods.keys) if (r !in rodsShot) { dmg[r] = (dmg[r] ?: 0) + 1; ev("rodmiss", r) }
+
+        // bounties are paid to everyone who hit; an angel that stopped a bullet pays its owner
+        for ((t, by) in hitBy) {
+            val n = players[t]?.bounty ?: 0
+            if (n == 0) continue
+            players[t]!!.bounty = 0
+            for (k in by) if (k != t) { award(k, n); ev("reward", k, t, n) }
+        }
+        for ((id, m) in mv) if (m.card == Card.ANGEL && m.cardTarget in guarded) {
+            award(id, ANGEL_POINTS); ev("guard", id, m.cardTarget, ANGEL_POINTS)
         }
 
         // damage and deaths, all at once
@@ -287,8 +328,9 @@ class Game(private val random: Random = Random.Default) {
         for (p in died) {
             ev("dead", p.id)
             for (k in hitBy[p.id].orEmpty()) {
-                players[k]?.let { it.kills++; it.score++; gains[k] = (gains[k] ?: 0) + 1 }
+                players[k]?.let { it.kills++; award(k, 1) }
             }
+            p.bounty = 0
             discard += p.hand; p.hand.clear()
         }
 
@@ -301,6 +343,25 @@ class Game(private val random: Random = Random.Default) {
             if (m.card == Card.AMMO) { val b = p.ammo; p.ammo = minOf(MAX_AMMO, p.ammo + 2); ev("ammo", id, n = p.ammo - b) }
         }
 
+        // truces: kept — both sides +1 bullet and a card; broken — a bounty on whoever fired at the other
+        fun aims(a: String, b: String) = mv[a]?.let { it.act == Act.SHOOT && (it.card == Card.FAN || it.target == b) } == true
+        val pacts = mv.filter { it.value.card == Card.TRUCE }.map { setOf(it.key, it.value.cardTarget!!) }.distinct()
+        for (pact in pacts) {
+            val (a, b) = pact.toList()
+            val traitors = listOf(a to b, b to a).filter { (x, y) -> aims(x, y) }
+            if (traitors.isEmpty()) {
+                val pa = players[a]!!; val pb = players[b]!!
+                if (!pa.alive || !pb.alive) continue
+                for (q in listOf(pa, pb)) { q.ammo = minOf(MAX_AMMO, q.ammo + 1); draw(q) }
+                ev("truce", a, b)
+            } else for ((x, y) in traitors) {
+                val px = players[x]!!
+                if (!px.alive) continue
+                px.bounty++
+                ev("betray", x, y)
+            }
+        }
+
         val left = living()
         if (left.size <= 1 || turn >= MAX_TURNS) endShowdown()
         deadline = 0
@@ -310,8 +371,8 @@ class Game(private val random: Random = Random.Default) {
     private fun endShowdown() {
         val left = living()
         when {
-            left.size == 1 -> left[0].let { it.score += SURVIVOR_POINTS; it.wins++; gains[it.id] = (gains[it.id] ?: 0) + SURVIVOR_POINTS }
-            left.size > 1 -> left.forEach { it.score += 1; gains[it.id] = (gains[it.id] ?: 0) + 1 }
+            left.size == 1 -> left[0].let { it.wins++; award(it.id, SURVIVOR_POINTS) }
+            left.size > 1 -> left.forEach { award(it.id, 1) }
         }
         showdownOver = true
     }
@@ -396,7 +457,7 @@ class Game(private val random: Random = Random.Default) {
                 .put("id", p.id).put("name", p.name).put("connected", p.connected)
                 .put("score", p.score).put("kills", p.kills).put("wins", p.wins)
                 .put("alive", p.alive).put("hp", p.hp).put("ammo", p.ammo)
-                .put("cards", p.hand.size).put("tired", p.tired)
+                .put("cards", p.hand.size).put("tired", p.tired).put("bounty", p.bounty)
                 .put("moved", p.id in moves).put("ready", p.id in ready)
                 .put("gain", gains[p.id] ?: 0)
         }))
@@ -423,6 +484,7 @@ class Game(private val random: Random = Random.Default) {
         const val MAX_HAND = 3
         const val MAX_TURNS = 8
         const val SURVIVOR_POINTS = 3
+        const val ANGEL_POINTS = 1
         const val DEFAULT_TARGET = 7
         const val DEFAULT_SECONDS = 45
         val TARGETS = listOf(5, 7, 10)

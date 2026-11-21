@@ -16,13 +16,21 @@
 
   const CARDS = {
     VEST: ['🦺', 'Бронежилет', 'Поглинає перший постріл у тебе цього ходу. Снайпера не зупиняє.'],
-    ANGEL: ['😇', 'Ангел-охоронець', 'Обраний гравець (не ти) цього ходу невразливий — навіть для снайпера.'],
+    ANGEL: ['😇', 'Ангел-охоронець', 'Обраний гравець цього ходу невразливий, навіть для снайпера. Відвів кулю — тобі +1 очко.'],
     SNIPER: ['🎯', 'Снайпер', 'До пострілу: його не зупинить ні ухилення, ні бронежилет.'],
     FAN: ['🌪️', 'Віяло', 'До пострілу: одна куля летить у кожного суперника.'],
     MIRROR: ['🪞', 'Рикошет', 'Постріли в тебе цього ходу летять назад у стрільця. Вбивство зараховується тобі.'],
     JAM: ['🔧', 'Осічка', 'Постріл обраного гравця цього ходу не вилетить, а куля згорить.'],
     MEDKIT: ['💊', 'Аптечка', '+1 ❤️ (до 3) ще до пострілів.'],
     AMMO: ['📦', 'Патронташ', '+2 кулі наприкінці ходу (до 3).'],
+    ROD: ['⚡', 'Громовідвід', 'Кулі, випущені в тебе, летять в обраного гравця, вбивство — стрільцю. Ніхто не стрельнув — сам втрачаєш ❤️.'],
+    BOUNTY: ['💰', 'Нагорода', 'За голову обраного гравця: хто в нього влучить — +1 очко. Діє до кінця перестрілки.'],
+    TRUCE: ['🤝', 'Перемир’я', 'Ви з обраним гравцем цього ходу не стріляєте одне в одного — обом +1 куля і карта. Хто стрельне — отримає нагороду за свою голову.'],
+  };
+  // who a targeted card asks for
+  const CARD_ASK = {
+    ANGEL: 'Кого береже ангел?', JAM: 'Чий пістолет заклинить?', ROD: 'Куди відвести кулі?',
+    BOUNTY: 'За чию голову нагорода?', TRUCE: 'Перемир’я з ким?',
   };
   const ACTS = {
     SHOOT: ['🔫', 'Стріляти'],
@@ -30,11 +38,16 @@
     RELOAD: ['🔄', 'Перезарядка'],
     IDLE: ['😐', 'Стоїть'],
   };
-  const needsTarget = c => c === 'ANGEL' || c === 'JAM';
+  const needsTarget = c => !!CARD_ASK[c];
   const needsShot = c => c === 'SNIPER' || c === 'FAN';
   const pts = n => n === 1 ? 'очко' : (n >= 2 && n <= 4 ? 'очки' : 'очок');
   // What each revealed event sounds like on the room's speaker.
-  const EVENT_SFX = { hit: 'shot', snipe: 'shot', dodge: 'shot', vest: 'shot', angel: 'shot', mirror: 'ricochet', jam: 'reload', dead: 'death' };
+  const EVENT_SFX = {
+    hit: 'shot', snipe: 'shot', dodge: 'shot', vest: 'shot', angel: 'shot', mirror: 'ricochet', rod: 'ricochet', rodmiss: 'shot',
+    jam: 'reload', dead: 'death', bounty: 'card', reward: 'correct', guard: 'correct', truce: 'correct', betray: 'wrong',
+  };
+  // this player lost a life to it
+  const hurts = (e, id) => ((e.k === 'hit' || e.k === 'snipe') && e.b === id) || (e.k === 'rodmiss' && e.a === id);
   const STEP = 520;  // ms between revealed events: sounds and lines go together
 
   function syncDraft() {
@@ -52,7 +65,7 @@
   function stats(p) {
     const s = g();
     if (!p.alive) return '<span class="muted">вибув(ла)</span>';
-    return `${pips(p.hp, s.maxHp, 'hp')}${pips(p.ammo, s.maxAmmo, 'ammo')}${s.cards ? `<span class="cnt">🃏${p.cards}</span>` : ''}${p.tired ? '<span class="cnt" title="ухилявся — зараз не може">😮‍💨</span>' : ''}`;
+    return `${pips(p.hp, s.maxHp, 'hp')}${pips(p.ammo, s.maxAmmo, 'ammo')}${s.cards ? `<span class="cnt">🃏${p.cards}</span>` : ''}${p.tired ? '<span class="cnt" title="ухилявся — зараз не може">😮‍💨</span>' : ''}${p.bounty ? `<span class="tr-bounty" title="нагорода за голову">💰${p.bounty > 1 ? '×' + p.bounty : ''}</span>` : ''}`;
   }
 
   function header() {
@@ -98,10 +111,19 @@
       case 'snipe': return e.a === e.b ? `🎯 ${nm(e.a)} дістає власна снайперська куля` : `🎯 ${nm(e.a)} знімає ${nm(e.b)}`;
       case 'dead': return `💀 ${nm(e.a)} вибуває`;
       case 'ammo': return e.n ? `📦 ${nm(e.a)} +${e.n} ${e.n === 1 ? 'куля' : 'кулі'}` : `📦 ${nm(e.a)}: барабан і так повний`;
+      case 'rod': return `⚡ Громовідвід ${nm(e.a)} відводить кулю ${nm(e.b)}`;
+      case 'rodmiss': return `⚡ У ${nm(e.a)} ніхто не стрельнув — громовідвід б’є по власнику`;
+      case 'bounty': return `💰 ${nm(e.a)} оголошує нагороду за голову ${nm(e.b)}`;
+      case 'reward': return `💰 ${nm(e.a)} забирає нагороду за ${nm(e.b)}: +${e.n} ${pts(e.n)}`;
+      case 'guard': return `😇 Ангел ${nm(e.a)} врятував ${nm(e.b)}: +${e.n} ${pts(e.n)}`;
+      case 'truce': return `🤝 ${nm(e.a)} і ${nm(e.b)} дотримали перемир’я: обом куля й карта`;
+      case 'betray': return `🗡️ ${nm(e.a)} зраджує перемир’я з ${nm(e.b)} — за голову зрадника нагорода`;
       default: return '';
     }
   }
-  const eventTone = e => e.k === 'dead' ? 'dead' : (e.k === 'hit' || e.k === 'snipe') ? 'hit' : (e.k === 'dodge' || e.k === 'vest' || e.k === 'angel') ? 'saved' : '';
+  const eventTone = e => e.k === 'dead' ? 'dead'
+    : (e.k === 'hit' || e.k === 'snipe' || e.k === 'rodmiss' || e.k === 'betray') ? 'hit'
+    : (e.k === 'dodge' || e.k === 'vest' || e.k === 'angel' || e.k === 'reward' || e.k === 'guard' || e.k === 'truce') ? 'saved' : '';
 
   // The turn's events, one after another (same rhythm as the sounds).
   function eventLog(big) {
@@ -139,7 +161,7 @@
         ? `<label class="toggle"><input type="checkbox" class="switch" data-act="cards" ${s.cards ? 'checked' : ''}> Карти-трюки</label>`
         : `<div class="small">Карти-трюки: <b>${s.cards ? 'так' : 'ні'}</b></div>`}
       <div class="muted small">Усі <b>одночасно й таємно</b> стріляють, ухиляються чи перезаряджаються. Поки йде таймер — домовляйтеся
-        вголос, але ніхто не зобов’язаний тримати слово. Вбивство +1, хто вистояв — +3.</div></div>`;
+        вголос, але ніхто не зобов’язаний тримати слово. Вбивство +1, хто вистояв — +3. Деякі карти платять за допомогу іншим.</div></div>`;
     if (!api.isHost) h += ui.wait('Чекаємо, поки хост почне', '👑');
     h += `<h2>Гравці · ${n}</h2><div class="card chips">${s.players.map(p => `<span class="chip" data-k="${p.id}"><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}</span>`).join('') || '<span class="muted">Поки нікого</span>'}</div>`;
     if (api.isHost) {
@@ -172,7 +194,7 @@
         return `<button class="pick tr-card ${draft.cardIdx === i ? 'on' : ''}" data-act="card" data-v="${c}" data-i="${i}" data-k="${c}${i}" ${off ? 'disabled' : ''}>${cardBox(c)}</button>`;
       }).join('')}</div>` : '<div class="muted small">Карт немає — перезарядка дає нову.</div>';
       if (draft.card && needsTarget(draft.card)) {
-        h += `<b>${draft.card === 'ANGEL' ? 'Кого береже ангел?' : 'Чий пістолет заклинить?'}</b>
+        h += `<b>${CARD_ASK[draft.card]}</b>
           <div class="grid2">${foes.map(f => `<button class="pick center ${draft.cardTarget === f.id ? 'on' : ''}" data-act="cardTarget" data-v="${f.id}">${esc(f.name)}</button>`).join('')}</div>`;
       }
       h += '</div>';
@@ -226,9 +248,9 @@
 
   function revealView() {
     const s = g();
-    const my = me() && s.events.some(e => (e.k === 'hit' || e.k === 'snipe') && e.b === me().id);
+    const at = me() ? s.events.findIndex(e => hurts(e, me().id)) : -1;
     let h = header();
-    if (my) h += `<div class="banner bad tr-ouch" style="--d:${s.events.findIndex(e => (e.k === 'hit' || e.k === 'snipe') && e.b === me().id) * STEP}ms">${mine().alive ? '🩸 У тебе влучили!' : '💀 Тебе застрелили'}</div>`;
+    if (at >= 0) h += `<div class="banner bad tr-ouch" style="--d:${at * STEP}ms">${!mine().alive ? '💀 Ти вибув(ла)' : s.events[at].k === 'rodmiss' ? '⚡ Громовідвід ударив по тобі' : '🩸 У тебе влучили!'}</div>`;
     h += `<h2>Хто що зробив</h2>` + movesCard() + eventLog(false);
     if (s.showdownOver) h += showdownBanner();
     h += `<h2>Рахунок</h2>` + table(false);
@@ -321,7 +343,7 @@
         if (next.phase === 'REVEAL') {
           // the shots ring out one by one, as the lines appear
           (next.events || []).forEach((e, i) => { const n = EVENT_SFX[e.k]; if (n) a.sfx(n, i * STEP); });
-          const hitMe = (next.events || []).findIndex(e => (e.k === 'hit' || e.k === 'snipe') && e.b === myId);
+          const hitMe = (next.events || []).findIndex(e => hurts(e, myId));
           const died = (next.events || []).some(e => e.k === 'dead' && e.a === myId);
           if (hitMe >= 0) setTimeout(() => a.vibrate(died ? [300, 100, 500] : [200, 80, 200]), hitMe * STEP);
           // the speaker serves the whole room: a lone survivor gets a fanfare, a draw or a massacre a plain sting

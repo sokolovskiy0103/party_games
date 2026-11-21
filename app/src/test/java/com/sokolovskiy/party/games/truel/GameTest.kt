@@ -136,6 +136,82 @@ class GameTest {
         assertEquals(1, g.p("p2").hp)  // dodge doesn't help against a sniper
     }
 
+    @Test fun angelPaysOnlyWhenItStopsABullet() {
+        val g = game()
+        g.give("p3", Card.ANGEL)
+        g.turn("p1" to shoot("p2"), "p2" to idle(), "p3" to idle(Card.ANGEL, "p2"))
+        assertEquals(2, g.p("p2").hp)
+        assertEquals(Game.ANGEL_POINTS, g.p("p3").score)
+        assertEquals(Game.ANGEL_POINTS, g.gains["p3"])
+        assertTrue(g.events.any { it.k == "guard" && it.a == "p3" && it.b == "p2" })
+        g.goOn()
+        g.give("p3", Card.ANGEL)
+        g.turn("p1" to idle(), "p2" to idle(), "p3" to idle(Card.ANGEL, "p2"))   // nobody shot: no reward
+        assertEquals(Game.ANGEL_POINTS, g.p("p3").score)
+    }
+
+    @Test fun rodSendsTheShotOnAndTheShooterKeepsTheKill() {
+        val g = game()
+        g.p("p3").hp = 1
+        g.give("p2", Card.ROD)
+        g.turn("p1" to shoot("p2"), "p2" to idle(Card.ROD, "p3"), "p3" to idle())
+        assertEquals(2, g.p("p2").hp)
+        assertFalse(g.p("p3").alive)
+        assertEquals(1, g.p("p1").kills)
+        assertEquals(listOf("rod", "hit", "dead"), g.events.map { it.k })
+    }
+
+    @Test fun rodAtTheShooterGivesTheKillToItsOwner() {
+        val g = game()
+        g.p("p1").hp = 1
+        g.give("p2", Card.ROD)
+        g.turn("p1" to shoot("p2"), "p2" to idle(Card.ROD, "p1"), "p3" to idle())
+        assertFalse(g.p("p1").alive)
+        assertEquals(1, g.p("p2").kills)
+    }
+
+    @Test fun rodNobodyShootsAtBurnsItsOwner() {
+        val g = game()
+        g.give("p2", Card.ROD); g.give("p3", Card.JAM)
+        g.turn("p1" to shoot("p2"), "p2" to idle(Card.ROD, "p3"), "p3" to idle(Card.JAM, "p1"))  // the shot never fired
+        assertEquals(1, g.p("p2").hp)
+        assertEquals(2, g.p("p3").hp)
+        assertTrue(g.events.any { it.k == "rodmiss" && it.a == "p2" })
+        assertEquals(0, g.p("p1").score + g.p("p3").score)   // nobody is credited for it
+    }
+
+    @Test fun bountyStaysUntilSomeoneHitsAndPaysEveryHitter() {
+        val g = game()
+        g.p("p1").ammo = 2; g.p("p2").ammo = 2
+        g.give("p1", Card.BOUNTY)
+        g.turn("p1" to idle(Card.BOUNTY, "p3"), "p2" to idle(), "p3" to idle())
+        assertEquals(1, g.p("p3").bounty)
+        assertEquals(1, g.boardJson(0)!!.getJSONArray("players").getJSONObject(2).getInt("bounty"))  // public
+        g.goOn()
+        g.p("p3").hp = 3
+        g.turn("p1" to shoot("p3"), "p2" to shoot("p3"), "p3" to idle())
+        assertEquals(1, g.p("p3").hp)
+        assertEquals(listOf(1, 1), listOf(g.p("p1").score, g.p("p2").score))
+        assertEquals(0, g.p("p3").bounty)
+        assertEquals(2, g.events.count { it.k == "reward" })
+    }
+
+    @Test fun truceKeptPaysBothBrokenPutsABountyOnTheTraitor() {
+        val g = game()
+        g.give("p1", Card.TRUCE); g.give("p2")
+        g.turn("p1" to idle(Card.TRUCE, "p2"), "p2" to shoot("p3"), "p3" to idle())
+        assertEquals(2, g.p("p1").ammo)       // 1 + 1
+        assertEquals(1, g.p("p2").ammo)       // 1 - 1 + 1
+        assertEquals(1, g.p("p1").hand.size); assertEquals(1, g.p("p2").hand.size)
+        assertTrue(g.events.any { it.k == "truce" })
+        g.goOn()
+        g.give("p1", Card.TRUCE)
+        g.turn("p1" to idle(Card.TRUCE, "p2"), "p2" to shoot("p1"), "p3" to idle())
+        assertEquals(1, g.p("p2").bounty)
+        assertEquals(0, g.p("p1").bounty)
+        assertTrue(g.events.any { it.k == "betray" && it.a == "p2" && it.b == "p1" })
+    }
+
     @Test fun angelOnlyOnOthers() {
         val g = game()
         g.give("p1", Card.ANGEL)
@@ -269,6 +345,7 @@ class GameTest {
     @Test fun secretsNeverLeak() {
         val g = game()
         g.give("p1", Card.SNIPER, Card.MIRROR)
+        g.give("p2", Card.VEST, Card.MEDKIT); g.give("p3", Card.VEST, Card.MEDKIT)   // viewers' own hands hold neither
         g.move("p1", shoot("p2", Card.SNIPER))
         val other = g.stateJson("p2", false, 0)
         val txt = other.toString()
