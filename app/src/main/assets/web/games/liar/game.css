@@ -1,0 +1,17 @@
+/* «Брехун»: amber; dice drawn with the Unicode die faces. */
+[data-theme=liar] {
+  --accent: #f2b33d;
+  --on-accent: #2a1a02;
+}
+
+.liar .dice-row { display: inline-flex; flex-wrap: wrap; gap: 2px; justify-content: center; }
+.liar .die { font-size: 30px; line-height: 1; color: var(--muted); }
+.liar .die.hit { color: var(--accent); }
+.liar .die.wild.hit { color: var(--good); }
+.liar .die.sm { font-size: 1.2em; color: var(--accent); vertical-align: -2px; }
+.liar .dice-row.big .die { font-size: 52px; color: var(--text); }
+.liar .dice-row.big .die.hit { color: var(--accent); }
+.liar .dice-row.big .die.wild.hit { color: var(--good); }
+.liar .faces { justify-content: space-between; flex-wrap: nowrap; }
+.liar .faces .pick.sq { flex: 1; font-size: 28px; }
+.liar .qty { flex-wrap: nowrap; }
