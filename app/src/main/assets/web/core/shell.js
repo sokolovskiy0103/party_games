@@ -582,7 +582,13 @@
     const info = st && st.game ? gameInfo(st.game) : null;
     document.body.dataset.game = document.body.dataset.theme = (st && st.game) || '';
     updateBg();
-    $('#logo').innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Party Games`;
+    // Only when it changes: replacing it replays the emoji's entrance animation on every state push.
+    const logoKey = info ? 'g:' + st.game : 'lobby';
+    const logo = $('#logo');
+    if (logo.dataset.k !== logoKey) {
+      logo.dataset.k = logoKey;
+      logo.innerHTML = info ? `<span class="logo-emoji">${info.emoji}</span>${esc(info.title)}` : `${dice()}Party Games`;
+    }
     $('#hostTag').hidden = !(st && st.isHost);
     const joined = !!(pid && st && st.me);
     $('#menuBtn').hidden = !joined;

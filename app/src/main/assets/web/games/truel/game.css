@@ -1,0 +1,12 @@
+/* «Труель»: dusty desert orange. */
+[data-theme=truel] {
+  --accent: #e3a14b;
+  --on-accent: #2a1700;
+}
+
+.truel .li.dead { opacity: .45; }
+.truel .stats { font-weight: 400; margin-top: 2px; }
+/* a trick card in hand: icon on the left, name and what it does on the right */
+.truel .pick.hand { display: flex; gap: 12px; align-items: center; }
+.truel .pick.hand .ico { font-size: 28px; line-height: 1; }
+.truel .pick.hand .small { font-weight: 400; }
