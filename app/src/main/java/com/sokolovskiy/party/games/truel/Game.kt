@@ -410,6 +410,9 @@ class Game(private val random: Random = Random.Default) {
         return o
     }
 
+    /** The shared TV screen: public info only. Null in the lobby, where the TV shows the room. */
+    fun boardJson(now: Long): JSONObject? = if (phase == Phase.LOBBY) null else stateJson(null, false, now)
+
     companion object {
         const val MIN_PLAYERS = 3
         const val START_HP = 2

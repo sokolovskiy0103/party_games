@@ -1,12 +1,100 @@
-/* «Труель»: dusty desert orange. */
+/* «Труель»: a dusty frontier street at sunset — warm umber night, desert-orange accent, blood red for hits. */
 [data-theme=truel] {
-  --accent: #e3a14b;
+  --accent: #e8a24c;
   --on-accent: #2a1700;
+  --bg: #170f0a;
+  --bg2: #22170f;
+  --card: #2a1d13;
+  --line: #4a3524;
+  --muted: #bba48a;
+  --bad: #ff5a4e;
+  --veil: .6;
+  --blood: #c8322a;
 }
+/* the sun goes down a little more when a showdown is decided */
+body[data-theme=truel] #bg > * { transition: filter 1.2s; }
+body[data-theme=truel][data-phase=REVEAL] #bg > * { filter: saturate(1.15) brightness(.95); }
+body[data-theme=truel][data-phase=OVER] #bg > * { filter: brightness(.75) saturate(.8); }
 
-.truel .li.dead { opacity: .45; }
-.truel .stats { font-weight: 400; margin-top: 2px; }
-/* a trick card in hand: icon on the left, name and what it does on the right */
-.truel .pick.hand { display: flex; gap: 12px; align-items: center; }
-.truel .pick.hand .ico { font-size: 28px; line-height: 1; }
-.truel .pick.hand .small { font-weight: 400; }
+/* ---------- lobby ---------- */
+.truel .tr-hero { padding: 6px 0 0; }
+.truel .tr-title { font-size: 40px; font-weight: 900; letter-spacing: -1px; color: var(--accent-text); text-shadow: 0 3px 0 rgba(0, 0, 0, .35); animation: fx-drop .6s var(--bounce) backwards; }
+
+/* ---------- header and clock ---------- */
+.truel .tr-head .tag.last { background: var(--bad-bg); color: var(--bad); animation: fx-heartbeat 1.2s ease-in-out 2; }
+.truel .tr-clock .timer { font-size: 52px; }
+.truel .tr-clock .bar { margin-top: 6px; }
+
+/* ---------- life, bullets, cards ---------- */
+.truel .stats { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; font-weight: 400; font-size: 13px; }
+.truel .pips { display: inline-flex; gap: 3px; }
+.truel .pips i { display: block; transition: background-color .4s, opacity .4s, transform .4s var(--spring); }
+.truel .pips i:not(.on) { opacity: .25; transform: scale(.8); }
+/* hearts: a rounded square tilted into a diamond-heart; bullets: a brass cartridge */
+.truel .pips.hp i { width: 11px; height: 11px; border-radius: 3px 50% 50% 50%; transform: rotate(45deg); background: var(--blood); }
+.truel .pips.hp i:not(.on) { transform: rotate(45deg) scale(.8); background: var(--muted); }
+.truel .pips.ammo i { width: 6px; height: 14px; border-radius: 3px 3px 1px 1px; background: linear-gradient(#f3cf7a 0 35%, #b07a2c 35%); }
+.truel .pips.ammo i:not(.on) { background: var(--muted); }
+.truel .cnt { color: var(--muted); }
+
+.truel .tr-table .li { transition: opacity .6s, filter .6s; }
+.truel .tr-table .li.dead { opacity: .45; filter: grayscale(.8); }
+.truel .tr-table .li.dead .name { text-decoration: line-through; text-decoration-color: var(--blood); }
+.truel .tr-ok { color: var(--good); font-weight: 800; animation: fx-pop .35s var(--spring) backwards; }
+.truel .li .place { font-size: 22px; width: 28px; text-align: center; }
+
+/* ---------- choosing a move ---------- */
+.truel .tr-acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.truel .tr-act { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 4px; }
+.truel .tr-act .ico { font-size: 30px; line-height: 1.1; transition: transform .3s var(--spring); }
+.truel .tr-act.on .ico { transform: scale(1.18) rotate(-8deg); }
+.truel .tr-act .why { font-size: 11.5px; font-weight: 400; color: var(--muted); }
+.truel .tr-foe .nm { display: block; }
+.truel .tr-foe .stats { justify-content: center; }
+
+/* a trick card in hand: looks like a worn playing card */
+.truel .tr-card {
+  display: flex; gap: 12px; align-items: center; padding: 10px 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 10%, var(--bg2)), var(--bg2));
+  border-style: solid; border-left: 5px solid var(--accent-line);
+  animation: fx-rise .4s var(--ease) backwards;
+}
+.truel .tr-card:nth-child(2) { animation-delay: 60ms; } .truel .tr-card:nth-child(3) { animation-delay: 120ms; }
+.truel .tr-card.on { border-left-color: var(--accent); }
+.truel .tr-card .ico { font-size: 30px; line-height: 1; flex: none; width: 36px; text-align: center; }
+.truel .tr-card .txt { display: flex; flex-direction: column; min-width: 0; }
+.truel .tr-card .what { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.truel .tr-sent .emoji { font-size: 34px; }
+
+/* ---------- the reveal ---------- */
+.truel .tr-moves .li { padding: 8px 0; }
+.truel .tr-moves .mv { font-size: 14px; text-align: right; }
+.truel .tr-log .ev { padding: 6px 0; border-bottom: 1px dashed var(--line); animation: tr-ev .45s var(--ease) backwards; animation-delay: var(--d, 0ms); }
+.truel .tr-log .ev:last-child { border-bottom: 0; }
+.truel .tr-log .ev.hit { color: var(--bad); font-weight: 700; animation-name: tr-ev, fx-shake; animation-duration: .45s, .4s; animation-delay: var(--d, 0ms), var(--d, 0ms); }
+.truel .tr-log .ev.dead { color: var(--bad); font-weight: 900; font-size: 1.1em; }
+.truel .tr-log .ev.saved { color: var(--good); }
+.truel .tr-log.big { font-size: 26px; }
+/* each line lands with its gunshot: a muzzle flash sweeping in from the left */
+@keyframes tr-ev {
+  from { opacity: 0; transform: translateX(-14px); background: color-mix(in srgb, var(--accent) 35%, transparent); }
+  60% { opacity: 1; transform: none; }
+  to { background: transparent; }
+}
+.truel .tr-ouch { animation: fx-pop .4s var(--spring) backwards, fx-shake .5s ease-in-out backwards; animation-delay: var(--d, 0ms), calc(var(--d, 0ms) + .1s); background: color-mix(in srgb, var(--blood) 30%, var(--card)); }
+.truel .tr-result { animation: fx-pop .5s var(--spring) backwards; animation-delay: var(--d, 0ms); }
+.truel .tr-result .emoji { animation-delay: calc(var(--d, 0ms) + .15s); }
+.truel .li.gain .plus { animation-delay: .8s; }
+
+/* ---------- TV ---------- */
+body.tv .truel .tr-clock .timer { font-size: 150px; }
+body.tv .truel .tr-tvcall { font-size: 30px; text-align: center; }
+body.tv .truel .tr-table .name { font-size: 26px; }
+body.tv .truel .tr-table .pts { font-size: 34px; }
+body.tv .truel .stats { font-size: 20px; gap: 14px; }
+body.tv .truel .pips.hp i { width: 18px; height: 18px; }
+body.tv .truel .pips.ammo i { width: 9px; height: 22px; }
+body.tv .truel .tr-moves { font-size: 22px; }
+body.tv .truel .tr-moves .mv { font-size: 22px; }
+body.tv .truel .tr-head .tag { font-size: 18px; }
+body.tv .truel .tr-tvover { max-width: 760px; margin: 0 auto; font-size: 22px; }

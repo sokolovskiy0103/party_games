@@ -10,7 +10,7 @@ class ClocktowerModule : GameModule {
     override val title = "Кривава вежа"
     override val subtitle = "Мафія, що виросла: у кожного своя роль, мертві грають далі, а телефон — ведучий, який може й збрехати отруєним"
     override val minPlayers = Game.MIN_PLAYERS
-    override val emoji = "🩸"
+    override val emoji = "🏰"
 
     override fun create(env: GameEnv): GameSession = Session(Game(), env)
 

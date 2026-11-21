@@ -45,6 +45,9 @@ class TruelModule : GameModule {
 
         override fun tick(now: Long) = game.tick(now)
 
+        /** The TV: what a viewer with no seat sees (no hands, moves only once revealed); the room screen in the lobby. */
+        override fun board(now: Long): JSONObject? = game.boardJson(now)
+
         override fun state(pid: String?, isHost: Boolean, now: Long): JSONObject {
             for (p in env.room.players.values) game.players[p.id]?.connected = p.connected
             return game.stateJson(pid, isHost, now)

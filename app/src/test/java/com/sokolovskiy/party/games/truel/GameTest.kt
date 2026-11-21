@@ -291,6 +291,22 @@ class GameTest {
         assertFalse(after.toString().contains("MIRROR"))
     }
 
+    @Test fun tvSeesTheBoardOnly() {
+        val lobby = Game()
+        assertNull(lobby.boardJson(0))
+        val g = game()
+        g.give("p1", Card.SNIPER, Card.MIRROR)
+        g.give("p2", Card.ANGEL)
+        g.move("p1", shoot("p2", Card.SNIPER))
+        val tv = g.boardJson(0)!!.toString()
+        for (secret in listOf("SNIPER", "MIRROR", "ANGEL", "\"hand\"", "\"me\"", "\"act\"")) assertFalse(secret, tv.contains(secret))
+        g.move("p2", idle()); g.move("p3", idle())
+        val after = g.boardJson(0)!!
+        assertEquals("SNIPER", after.getJSONObject("moves").getJSONObject("p1").getString("card"))   // played cards are public
+        assertFalse(after.toString().contains("MIRROR"))                                            // the rest of the hand isn't
+        assertFalse(after.has("me"))
+    }
+
     @Test fun leavingBelowThreeCancels() {
         val g = game(4, cards = false)
         g.move("p1", idle()); g.move("p2", idle()); g.move("p3", idle())
