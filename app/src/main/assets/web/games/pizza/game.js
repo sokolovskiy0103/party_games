@@ -99,9 +99,15 @@
   // ---------- pieces ----------
   function header() {
     const s = g();
+    const h = s.hazard;
+    let mid = `<span class="pz-addr">${esc(s.address)}</span>`;
+    if (h && s.phase === 'PLAY') {
+      const mine = me() && h.who === me().id;
+      mid = `<span class="pz-addr hz ${mine ? 'mine' : ''}" data-k="hz-${h.k}-${h.until}">${hazardIcon(h.k)}<b>${HAZARDS[h.k][0]}</b>${h.who ? ` · ${mine ? 'у тебе!' : esc(nameOf(h.who))}` : ''}</span>`;
+    }
     return `<div class="pz-head" data-k="head">
       <span class="pz-lvl">Доставка ${s.level}</span>
-      <span class="pz-addr">${esc(s.address)}</span>
+      ${mid}
       <span class="pz-temp ${s.temp <= 30 ? 'cold' : ''}">${SVG.thermo}<b>${s.temp}°</b></span></div>`;
   }
 
@@ -138,34 +144,15 @@
     let inner;
     if (!s.started) {
       inner = `<div class="card pz-cmd intro" data-k="intro-${s.level}">
-        <div class="pz-cmd-sub">Доставка ${s.level} · знайомтеся з пультами</div>
-        ${ui.timer({ deadline: s.startAt, low: 4000, fmt: 'sec', cls: 'pz-countdown' })}${novelties(s.level, s)}</div>`;
+        <div class="pz-intro-row"><span class="pz-cmd-sub">Знайомтеся з пультами · старт за</span>${ui.timer({ deadline: s.startAt, low: 4000, fmt: 'sec', cls: 'pz-countdown' })}</div>
+        ${novelties(s.level, s)}</div>`;
     } else if (m && m.cmd) {
       const c = m.cmd;
-      inner = `<div class="card pz-cmd live ${m.glitch ? 'glitchy' : ''}" data-k="cmd-${c.id}">
+      inner = `<div class="card pz-cmd live ${m.glitch ? 'glitchy' : ''} ${c.text.length > 44 ? 'long' : ''}" data-k="cmd-${c.id}">
         <div class="pz-cmd-text">${esc(c.text)}</div>
         ${ui.timerBar({ deadline: c.deadline, total: c.total, low: Math.min(4000, c.total / 3) })}</div>`;
     } else inner = `<div class="card pz-cmd idle" data-k="idle"><div class="pz-cmd-sub">Зачекай на команду…</div></div>`;
     return `<div class="pz-slot cmd" data-k="cmd">${inner}</div>`;
-  }
-
-  function note() {
-    const s = g();
-    const m = me();
-    let inner = '';
-    const cr = s.crisis;
-    if (cr && cr.k === 'ASTEROIDS' && m) {
-      const left = m.crisisLeft || 0;
-      inner = `<div class="pz-note crisis" data-k="cr-${cr.id}">${hazardIcon('ASTEROIDS')}
-        <div class="grow"><b>${HAZARDS.ASTEROIDS[0]}!</b> ${left ? `Збий ще ${left}` : `Чисто! Чекаємо інших · ${cr.done.length}/${cr.crew}`}
-        ${ui.timerBar({ deadline: cr.deadline, total: cr.total, low: 2500 })}</div></div>`;
-    } else if (s.hazard && s.hazard.who) {
-      const h = s.hazard;
-      const mine = m && h.who === m.id;
-      inner = `<div class="pz-note ${mine ? 'mine' : ''}" data-k="hz-${h.k}-${h.until}">${hazardIcon(h.k)}
-        <span><b>${HAZARDS[h.k][0]}</b> у <b>${mine ? 'тебе' : esc(nameOf(h.who))}</b>: ${HAZARDS[h.k][1]}</span></div>`;
-    }
-    return `<div class="pz-slot note" data-k="note">${inner}</div>`;
   }
 
   // ---------- instruments ----------
@@ -276,7 +263,9 @@
       rocks = { id: cr.id, hit: new Set(), list: Array.from({ length: cr.per }, () => ({ x: 8 + r() * 76, y: 6 + r() * 78, d: r() * 2, dx: (r() - 0.5) * 30, s: 56 + r() * 20 })) };
     }
     const done = m.crisisLeft === 0;
-    return `<div class="pz-rocks" data-k="rocks-${cr.id}">${rocks.list.map((k, i) => {
+    const hud = `<div class="pz-rocks-hud">${hazardIcon('ASTEROIDS')}<b>${done ? `Чисто! Чекаємо інших · ${cr.done.length}/${cr.crew}` : `Збий метеорити: ${m.crisisLeft}`}</b>
+      ${ui.timerBar({ deadline: cr.deadline, total: cr.total, low: 2500 })}</div>`;
+    return `<div class="pz-rocks" data-k="rocks-${cr.id}">${hud}${rocks.list.map((k, i) => {
       const hit = done || rocks.hit.has(i);
       return `<button class="pz-rock ${hit ? 'boom' : ''}" data-act="rock" data-i="${i}" style="left:${k.x}%;top:${k.y}%;--d:${k.d}s;--dx:${k.dx}px;--s:${k.s}px" aria-label="Метеорит">${SVG.rock}</button>`;
     }).join('')}</div>`;
@@ -342,7 +331,7 @@
     const m = me();
     const h = header() + route(false);
     if (!m) return h + `<div class="card flat center muted" data-k="watch">Ти дивишся збоку. Підказуй екіпажу!</div>`;
-    return h + command() + note() + panel() + crisisSlot();
+    return h + command() + panel() + crisisSlot();
   }
 
   function crew(sorted) {
@@ -453,11 +442,10 @@
   function dragValue(e) {
     const c = ctl(drag.c);
     if (!c) return null;
-    const r = drag.el.getBoundingClientRect();
     let f;
-    if (drag.kind === 'slider') f = (e.clientX - r.left - 14) / (r.width - 28);
-    else if (drag.kind === 'fader') f = 1 - (e.clientY - r.top - 12) / (r.height - 24);
-    else f = (Math.max(-135, Math.min(135, angleOf(e, r))) + 135) / 270;
+    if (drag.kind === 'slider') { const r = drag.el.querySelector('.pz-rail').getBoundingClientRect(); f = (e.clientX - r.left) / r.width; }
+    else if (drag.kind === 'fader') { const r = drag.el.querySelector('.pz-fd-slot').getBoundingClientRect(); f = 1 - (e.clientY - r.top) / r.height; }
+    else f = (Math.max(-135, Math.min(135, angleOf(e, drag.el.getBoundingClientRect()))) + 135) / 270;
     f = Math.max(0, Math.min(1, f));
     return c.min + Math.round(f * (c.max - c.min));
   }
@@ -599,6 +587,33 @@
   // long presses must not open the context menu over the instruments
   document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('.pizza .pz-panel')) e.preventDefault(); });
 
+  // ---------- one screen ----------
+  /**
+   * The flight must fit one screen: the panel takes exactly the height left below it and its rows share it equally
+   * (CSS grid). The room an instrument gets (--pz-row × --pz-col, px of a plate's body) goes to CSS, which scales each
+   * kind against its own natural size (--nh / --nw in game.css), so a slider shrinks less than a pull cord.
+   * Measured after every render and on resize; written on <html>, which the shell's merge doesn't touch.
+   */
+  function fit() {
+    const root = document.documentElement;
+    const panel = document.querySelector('.pizza.is-play .pz-panel');
+    if (!panel) { root.style.removeProperty('--pz-h'); return; }
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const top = panel.getBoundingClientRect().top + window.scrollY;
+    const h = Math.max(220, Math.floor(vh - top - 12));
+    if (root.style.getPropertyValue('--pz-h') !== h + 'px') root.style.setProperty('--pz-h', h + 'px');
+    const body = panel.querySelector('.pz-ctl .pz-body');
+    if (!body) return;
+    const narrow = panel.querySelector('.pz-ctl:not(.wide) .pz-body');
+    const row = String(body.clientHeight), col = String(narrow ? narrow.clientWidth : 999);
+    if (root.style.getPropertyValue('--pz-row') !== row) root.style.setProperty('--pz-row', row);
+    if (root.style.getPropertyValue('--pz-col') !== col) root.style.setProperty('--pz-col', col);
+  }
+  let fitRaf = 0;
+  const refit = () => { if (!fitRaf) fitRaf = requestAnimationFrame(() => { fitRaf = 0; fit(); }); };
+  window.addEventListener('resize', refit);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', refit);
+
   // ---------- registration ----------
   PG.register('pizza', {
     // background music per phase (shell.js): full while flying, low while people catch their breath
@@ -619,6 +634,7 @@
         case 'OVER': h = overView(); break;
         default: h = '';
       }
+      refit();
       return `<div class="pizza is-${s.phase.toLowerCase()} stack">${h}</div>`;
     },
 
