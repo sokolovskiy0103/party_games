@@ -12,6 +12,9 @@ interface GameModule {
     val title: String
     val subtitle: String
     val minPlayers: Int
+
+    /** Upper limit, if the game has one (the lobby's player-count filter hides it above that). */
+    val maxPlayers: Int? get() = null
     val emoji: String
 
     fun create(env: GameEnv): GameSession

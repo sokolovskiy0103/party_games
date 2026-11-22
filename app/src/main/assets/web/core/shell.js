@@ -33,6 +33,8 @@
   let bigQr = false;
   let castFailed = false;  // the phone has no cast screen to open
   let armed = null;
+  let playerFilter = null;  // host's player count for the game list; null = follow the connected players
+  let showAllGames = false;
 
   // Dev helper: ?autojoin=Name joins without touching the form (used by the desktop 4-pane launcher).
   const autoName = new URLSearchParams(location.search).get('autojoin');
@@ -467,18 +469,40 @@
     </div>`;
   }
 
+  /** Games that work for n players. */
+  const fits = (g, n) => n >= g.minPlayers && (g.maxPlayers == null || n <= g.maxPlayers);
+  const playersLabel = g => g.maxPlayers ? `${g.minPlayers}–${g.maxPlayers} гравців` : `від ${g.minPlayers} гравців`;
+  const connectedCount = () => Math.max(1, st.players.filter(p => p.connected).length);
+
+  /** Host's game list, filtered by player count (by default the number of connected players). */
+  function gamePicker() {
+    const here = connectedCount();
+    const n = playerFilter ?? here;
+    const shown = showAllGames ? st.games : st.games.filter(g => fits(g, n));
+    const hidden = st.games.length - shown.length;
+    return `<div class="picker-head"><h2 class="grow">Що граємо?</h2>
+        <div class="pcount${showAllGames ? ' off' : ''}">
+          <button class="mini ghost" data-pg="pf" data-v="-1" aria-label="Менше гравців" ${n <= 1 ? 'disabled' : ''}>−</button>
+          <button class="mini ghost pc-n" data-pg="pf" data-v="0" aria-label="Скинути до кількості гравців у кімнаті">👥 ${n}${playerFilter != null ? ' ↺' : ''}</button>
+          <button class="mini ghost" data-pg="pf" data-v="1" aria-label="Більше гравців" ${n >= 30 ? 'disabled' : ''}>+</button>
+        </div></div>
+      <div class="games">${shown.map(g => {
+        const enough = st.players.length >= g.minPlayers;
+        return `<button class="game-card" data-k="${g.id}" data-pg="select" data-v="${g.id}" data-theme="${g.id}">
+          <span class="emoji">${g.emoji}</span>
+          <span class="grow"><b>${esc(g.title)}</b><span class="muted small">${esc(g.subtitle)}</span>
+          <span class="small ${enough ? 'muted' : 'c-warn'}">${playersLabel(g)}</span></span></button>`;
+      }).join('') || `<p class="muted center">Немає ігор на ${n} гравців.</p>`}</div>
+      ${hidden ? `<button class="ghost" data-pg="allGames">Показати всі ігри (ще ${hidden})</button>`
+        : showAllGames ? `<button class="ghost" data-pg="allGames">Лише ігри на ${n} гравців</button>` : ''}`;
+  }
+
   function lobbyView() {
     let h = `<div class="stack">`;
     if (st.isHost) {
       h += inviteCard(true);
       h += `<h2>Гравці · ${st.players.length}</h2>${playersCard()}`;
-      h += `<h2>Що граємо?</h2><div class="games">${st.games.map(g => {
-        const enough = st.players.length >= g.minPlayers;
-        return `<button class="game-card" data-pg="select" data-v="${g.id}" data-theme="${g.id}">
-          <span class="emoji">${g.emoji}</span>
-          <span class="grow"><b>${esc(g.title)}</b><span class="muted small">${esc(g.subtitle)}</span>
-          <span class="small ${enough ? 'muted' : 'c-warn'}">від ${g.minPlayers} гравців</span></span></button>`;
-      }).join('')}</div>`;
+      h += gamePicker();
     } else {
       h += `<h1>Привіт, ${esc(st.me.name)}!</h1>
         ${ui.wait('Хост обирає гру', '👑')}
@@ -802,6 +826,15 @@
         if (armed !== key) { armed = key; render(); setTimeout(() => { if (armed === key) { armed = null; render(); } }, 3000); return; }
         armed = null; return send({ t: 'kick', pid: el.dataset.v });
       }
+      case 'pf': {
+        const here = connectedCount();
+        const d = +el.dataset.v;
+        playerFilter = d ? Math.min(30, Math.max(1, (playerFilter ?? here) + d)) : null;
+        if (playerFilter === here) playerFilter = null;  // back on "auto": follows people joining again
+        showAllGames = false;
+        return render();
+      }
+      case 'allGames': showAllGames = !showAllGames; return render();
       case 'select': return send({ t: 'select', game: el.dataset.v });
       case 'exitGame': armed = null; menuOpen = false; return send({ t: 'exitGame' });
       case 'leave':

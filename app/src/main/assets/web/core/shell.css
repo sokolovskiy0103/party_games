@@ -63,6 +63,10 @@ body.drawer-open { overflow: hidden; }
 .inv-info .url { font-size: 13px; color: var(--text); }
 
 /* ---------- game picker: each card wears its game's theme ---------- */
+.picker-head { display: flex; align-items: center; gap: 8px; }
+.pcount { display: flex; align-items: center; gap: 2px; flex: none; transition: opacity .2s; }
+.pcount.off { opacity: .45; }
+.pcount .pc-n { min-width: 64px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .games { display: grid; gap: 10px; }
 .game-card {
   display: flex; gap: 14px; align-items: center; width: 100%; text-align: left; padding: 16px; overflow: hidden;

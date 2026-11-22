@@ -92,7 +92,8 @@ class Room(val modules: List<GameModule>) {
         }))
         o.put("games", JSONArray(modules.map {
             JSONObject().put("id", it.id).put("title", it.title).put("subtitle", it.subtitle)
-                .put("minPlayers", it.minPlayers).put("emoji", it.emoji)
+                .put("minPlayers", it.minPlayers).put("maxPlayers", it.maxPlayers ?: JSONObject.NULL)
+                .put("emoji", it.emoji)
         }))
         if (tv) {
             o.put("me", JSONObject.NULL)
