@@ -1,0 +1,5 @@
+/* «Три слова»: warm stage magenta. */
+[data-theme=speech] {
+  --accent: #ff5fa2;
+  --on-accent: #2a0414;
+}

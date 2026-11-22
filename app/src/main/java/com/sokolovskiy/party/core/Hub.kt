@@ -16,6 +16,7 @@ import com.sokolovskiy.party.games.truel.TruelModule
 import com.sokolovskiy.party.games.insider.InsiderModule
 import com.sokolovskiy.party.games.liar.LiarModule
 import com.sokolovskiy.party.games.pizza.PizzaModule
+import com.sokolovskiy.party.games.speech.SpeechModule
 import com.sokolovskiy.party.games.wavelength.WavelengthModule
 import com.sokolovskiy.party.games.words.WordsModule
 import kotlinx.coroutines.CoroutineScope
@@ -73,6 +74,7 @@ class Hub(private val context: Context) : GameEnv {
         TruelModule(),
         LiarModule(),
         PizzaModule(),
+        SpeechModule(),
     )
     override val room = Room(modules)
 

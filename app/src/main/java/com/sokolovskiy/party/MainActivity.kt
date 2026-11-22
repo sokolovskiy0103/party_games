@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.speech.SpeechRecognizer
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -23,12 +24,17 @@ import androidx.core.view.WindowInsetsCompat
 import com.sokolovskiy.party.tv.TvPresenter
 import com.sokolovskiy.party.update.UpdateUi
 import com.sokolovskiy.party.update.Updater
+import com.sokolovskiy.party.voice.HostVoice
+import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var web: WebView
     private lateinit var updates: UpdateUi
     private var tv: TvPresenter? = null
+    private var voice: HostVoice? = null
+    /** Language of a listen() that waits for the mic permission. */
+    private var voiceLang: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -96,6 +102,37 @@ class MainActivity : ComponentActivity() {
         })
     }
 
+    // ---------- speech recognition for the host page («Три слова») ----------
+
+    private fun startVoice(lang: String) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            voiceLang = lang
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_MIC)
+            return
+        }
+        val v = voice ?: HostVoice(
+            this,
+            onText = { text, final ->
+                web.evaluateJavascript("window.PG&&PG.onVoice&&PG.onVoice(${JSONObject.quote(text)},$final)", null)
+            },
+            onState = ::voiceState,
+        ).also { voice = it }
+        v.start(lang)
+    }
+
+    private fun voiceState(st: String) {
+        web.evaluateJavascript("window.PG&&PG.onVoiceState&&PG.onVoiceState(${JSONObject.quote(st)})", null)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_MIC) return
+        val lang = voiceLang ?: return   // the speech ended while the dialog was open
+        voiceLang = null
+        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startVoice(lang) else voiceState("denied")
+    }
+
     override fun onResume() {
         super.onResume()
         updates.resume()
@@ -123,6 +160,18 @@ class MainActivity : ComponentActivity() {
                 else VibrationEffect.createWaveform(longArrayOf(0) + ms.toLongArray(), -1)
             )
         }
+        /**
+         * «Три слова»: the host speaks and the app listens (a WebView has no speech recognition). Results come back as
+         * `PG.onVoice(text, final)`, the status as `PG.onVoiceState('on' | 'off' | 'denied')`. False: no recogniser here.
+         */
+        @JavascriptInterface fun listen(lang: String): Boolean {
+            if (!SpeechRecognizer.isRecognitionAvailable(this@MainActivity)) return false
+            runOnUiThread { startVoice(lang) }
+            return true
+        }
+        @JavascriptInterface fun stopListening() {
+            runOnUiThread { voiceLang = null; voice?.stop() }
+        }
         /** "Вийти" in the menu: same as the notification's "Завершити гру" — stops the server and the app. */
         @JavascriptInterface fun quit() {
             runOnUiThread {
@@ -132,8 +181,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private companion object {
+        const val REQ_MIC = 2
+    }
+
     override fun onDestroy() {
         tv?.stop()
+        voice?.destroy()
         updates.stop()
         web.destroy()
         super.onDestroy()
