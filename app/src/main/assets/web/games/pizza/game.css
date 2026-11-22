@@ -1,0 +1,413 @@
+/* «Піца-шатл»: 80s neon space — deep indigo, hot magenta, cyan glow, cheese yellow.
+   The instruments are drawn as hardware: screwed metal plates, label tape, bezels, domes, levers, knurled knobs. */
+[data-theme=pizza] {
+  --accent: #ff4fa3;
+  --on-accent: #23041a;
+  --bg: #120a26;
+  --bg2: #1b1238;
+  --card: #221847;
+  --line: #3b2d6e;
+  --muted: #a99bd6;
+  --good: #3de0b0;
+  --veil: .55;
+  --cyan: #3de0ff;
+  --cheese: #ffcf3d;
+  --pep: #e8333f;
+  --steel-1: #5b5288;
+  --steel-2: #2b2452;
+  --hole: #0c0820;
+}
+/* the sky dims while flying, flashes in the warp, freezes at the end */
+body[data-theme=pizza] #bg > * { transition: filter 1.2s; }
+body[data-theme=pizza][data-phase=PLAY] #bg > * { filter: brightness(.75); }
+body[data-theme=pizza][data-phase=WARP] #bg > * { filter: saturate(1.3) brightness(1.05); }
+body[data-theme=pizza][data-phase=OVER] #bg > * { filter: hue-rotate(160deg) saturate(.6) brightness(.7); }
+
+.pizza .pz-svg { display: block; }
+.pizza .pz-ico { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; }
+.pizza .grow { flex: 1; min-width: 0; }
+.pizza .pz-slot:empty { display: none; }
+
+/* ---------- lobby ---------- */
+.pizza .pz-intro { text-align: center; }
+.pizza .pz-logo { position: relative; width: 190px; height: 90px; margin: 0 auto 6px; }
+.pizza .pz-logo .ship { position: absolute; left: 0; top: 18px; width: 160px; filter: drop-shadow(0 0 14px color-mix(in srgb, var(--accent) 60%, transparent)); animation: pz-bob 3s ease-in-out infinite; }
+.pizza .pz-logo .pizza { position: absolute; right: 0; top: 0; width: 54px; transform: rotate(18deg); filter: drop-shadow(0 0 10px var(--cheese)); }
+.pizza .ship .flame { transform-origin: 26px 24px; animation: pz-flame .18s steps(2) infinite; }
+@keyframes pz-flame { 50% { transform: scaleX(.75); } }
+@keyframes pz-bob { 50% { transform: translateY(-6px) rotate(-2deg); } }
+
+/* ---------- header, route, temperature ---------- */
+.pizza .pz-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pizza .pz-lvl { flex: none; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 900; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--on-accent); background: var(--accent); box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 50%, transparent); }
+.pizza .pz-addr { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: var(--muted); }
+.pizza .pz-temp { flex: none; display: inline-flex; align-items: center; gap: 3px; padding: 3px 10px 3px 6px; border-radius: 999px;
+  background: color-mix(in oklab, var(--cheese) 16%, var(--bg2)); color: var(--cheese); transition: background-color .6s, color .6s; }
+.pizza .pz-temp.cold { background: color-mix(in oklab, var(--cyan) 20%, var(--bg2)); color: var(--cyan); }
+
+.pizza .pz-route { display: flex; align-items: center; gap: 8px; }
+.pizza .pz-end .pz-svg { width: 26px; height: 26px; }
+.pizza .pz-track { position: relative; flex: 1; height: 8px; border-radius: 999px; background: color-mix(in srgb, #000 40%, var(--bg2)); border: 1px solid var(--line); }
+.pizza .pz-track > i { position: absolute; inset: 0 auto 0 0; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--cyan)); box-shadow: 0 0 10px var(--accent); transition: width .5s var(--ease); }
+.pizza .pz-ship { position: absolute; top: 50%; left: calc(var(--p) * 100%); width: 46px; transform: translate(calc(var(--p) * -100%), -50%);
+  transition: left .5s var(--ease), transform .5s var(--ease); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cyan) 60%, transparent)); }
+.pizza .pz-count { min-width: 44px; text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; }
+.pizza .pz-count small { color: var(--muted); font-weight: 700; }
+.pizza .pz-route.big .pz-track { height: 16px; }
+.pizza .pz-route.big .pz-ship { width: 120px; }
+.pizza .pz-route.big .pz-end .pz-svg { width: 52px; height: 52px; }
+.pizza .pz-route.big .pz-count { font-size: 30px; min-width: 90px; }
+
+.pizza .pz-thermo { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none; }
+.pizza .pz-tube { position: relative; width: 18px; height: 90px; border-radius: 999px; background: var(--hole); border: 2px solid var(--line); overflow: hidden;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .04); }
+.pizza .pz-tube > i { position: absolute; inset: auto 0 0 0; background: linear-gradient(0deg, var(--pep), var(--cheese)); transition: height .6s var(--ease); }
+.pizza .pz-thermo.cold .pz-tube > i { background: linear-gradient(0deg, #2f6bff, var(--cyan)); }
+.pizza .pz-thermo b { color: var(--cheese); }
+.pizza .pz-thermo.cold b { color: var(--cyan); }
+.pizza .pz-thermo.big .pz-tube { width: 40px; height: 300px; border-width: 3px; }
+.pizza .pz-thermo.big b { font-size: 40px; }
+
+/* ---------- the command ---------- */
+.pizza .pz-cmd { padding: 14px 16px 12px; border: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 25%, transparent), inset 0 0 30px color-mix(in srgb, var(--accent) 8%, transparent);
+  animation: pz-fade .18s ease-out backwards; }
+.pizza .pz-cmd.idle { border-color: var(--line); box-shadow: none; }
+.pizza .pz-cmd.intro { text-align: center; border-color: var(--cheese); box-shadow: 0 0 22px color-mix(in srgb, var(--cheese) 22%, transparent); }
+.pizza .pz-cmd-sub { font-size: 13px; color: var(--muted); }
+.pizza .pz-cmd-text { font-size: 22px; font-weight: 900; line-height: 1.2; margin-bottom: 10px; text-wrap: balance; }
+.pizza .pz-cmd .bar > i { background: linear-gradient(90deg, var(--cyan), var(--accent)); }
+.pizza .pz-countdown { font-size: 54px; color: var(--cheese); text-shadow: 0 0 20px color-mix(in srgb, var(--cheese) 60%, transparent); }
+/* jammed radio: cyan text that twitches now and then, never a strobe */
+.pizza .pz-cmd.glitchy { border-color: var(--cyan); }
+.pizza .pz-cmd.glitchy .pz-cmd-text { color: var(--cyan); animation: pz-glitch 1.6s steps(1) infinite; }
+@keyframes pz-glitch { 0%, 82%, 100% { transform: none; opacity: 1; } 86% { transform: translateX(-3px); opacity: .7; } 92% { transform: translateX(2px); opacity: .85; } }
+@keyframes pz-fade { from { opacity: 0; } }
+
+/* what's new on a level */
+.pizza .pz-new { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+.pizza .pz-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  background: color-mix(in oklab, var(--cyan) 14%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent); }
+.pizza .pz-chip.hz { background: color-mix(in oklab, var(--warn) 14%, var(--bg2)); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+
+/* hazard notes */
+.pizza .pz-note { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: var(--r); font-size: 14px;
+  background: color-mix(in oklab, var(--warn) 14%, var(--bg2)); border: 1px solid color-mix(in srgb, var(--warn) 50%, transparent); animation: pz-fade .25s ease-out backwards; }
+.pizza .pz-note.mine { background: color-mix(in oklab, var(--bad) 20%, var(--bg2)); border-color: var(--bad); }
+.pizza .pz-note.crisis { background: color-mix(in oklab, var(--cyan) 14%, var(--bg2)); border-color: var(--cyan); }
+.pizza .pz-note .bar { margin-top: 6px; }
+.pizza .pz-hz-ico { display: inline-grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 9px; color: var(--warn);
+  background: color-mix(in srgb, #000 30%, transparent); }
+.pizza .pz-hz-ico .pz-ico { width: 20px; height: 20px; }
+.pizza .pz-hz-ico.k-SAUCE { color: var(--pep); }
+.pizza .pz-hz-ico.k-GLITCH, .pizza .pz-hz-ico.k-GRAVITY, .pizza .pz-hz-ico.k-ASTEROIDS { color: var(--cyan); }
+.pizza .pz-hz-ico.k-CHEESE { color: var(--cheese); }
+.pizza .pz-chip .pz-hz-ico { width: 20px; height: 20px; border-radius: 6px; background: none; }
+.pizza .pz-chip .pz-hz-ico .pz-ico { width: 15px; height: 15px; }
+
+/* ---------- the panel ---------- */
+.pizza .pz-panel { position: relative; display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: row dense; gap: 8px; padding: 8px;
+  border-radius: var(--radius); background: linear-gradient(180deg, #1a1338, #0d0922); border: 1px solid #3a2f66;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .05), 0 0 26px color-mix(in srgb, var(--cyan) 10%, transparent);
+  animation: pz-fade .4s ease-out backwards; touch-action: none; }
+.pizza .pz-panel.locked .pz-body { pointer-events: none; }
+.pizza .pz-panel.locked .pz-ctl { filter: saturate(.75) brightness(.9); }
+/* the shake goes on the instruments, not the panel: changing the panel's animation would replay its fade-in */
+.pizza .pz-panel.shaking > .pz-ctl { animation: pz-shake .5s var(--ease) 3; }
+@keyframes pz-shake { 25% { transform: translate(-5px, 2px) rotate(-1deg); } 50% { transform: translate(4px, -2px) rotate(1deg); } 75% { transform: translate(-2px, 1px); } }
+
+/* a screwed metal plate with a label-tape name */
+.pizza .pz-ctl { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 116px; padding: 8px 8px 10px;
+  border-radius: 12px; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  background:
+    radial-gradient(circle at 7px 7px, #8d84bb 0 1.6px, #1a1336 2.4px, transparent 3px),
+    radial-gradient(circle at calc(100% - 7px) 7px, #8d84bb 0 1.6px, #1a1336 2.4px, transparent 3px),
+    radial-gradient(circle at 7px calc(100% - 7px), #8d84bb 0 1.6px, #1a1336 2.4px, transparent 3px),
+    radial-gradient(circle at calc(100% - 7px) calc(100% - 7px), #8d84bb 0 1.6px, #1a1336 2.4px, transparent 3px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .025) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, var(--steel-1), var(--steel-2));
+  border: 1px solid #120d28; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), inset 0 -2px 0 rgba(0, 0, 0, .3), 0 3px 0 rgba(0, 0, 0, .45); }
+.pizza .pz-ctl.wide { grid-column: span 2; }
+.pizza .pz-name { max-width: calc(100% - 12px); padding: 2px 7px; border-radius: 3px; font: 800 11px/1.15 ui-monospace, "Cascadia Mono", monospace;
+  text-transform: uppercase; letter-spacing: .4px; text-align: center; color: #fff3c4;
+  background: linear-gradient(180deg, #1d1d1d, #050505); box-shadow: 0 1px 0 rgba(255, 255, 255, .15), inset 0 0 0 1px rgba(255, 255, 255, .06); }
+.pizza .pz-body { flex: 1; width: 100%; display: grid; place-items: center; touch-action: none; }
+/* undo the stock button (min-height, padding) without beating the instruments' own colours and fonts */
+.pizza .pz-ctl button { min-height: 0; -webkit-tap-highlight-color: transparent; }
+
+.pizza .pz-led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #2a2148; box-shadow: inset 0 1px 1px rgba(0, 0, 0, .6); transition: background-color .15s, box-shadow .15s; }
+.pizza .on > .pz-led, .pizza .pz-toggle.on .pz-led { background: var(--good); box-shadow: 0 0 8px var(--good), 0 0 2px #fff inset; }
+
+/* bezel + dome: the arcade button (also under the safety cover and in the colour row) */
+.pizza .pz-bezel { display: grid; place-items: center; width: 74px; height: 74px; border-radius: 50%;
+  background: radial-gradient(circle, #191233 58%, #9f97cc 60%, #4b4377 72%, #231b45 74%); box-shadow: 0 2px 0 rgba(0, 0, 0, .5); }
+.pizza .pz-bezel.sm { width: 56px; height: 56px; }
+.pizza .pz-dome { --c: var(--pep); width: 80%; height: 80%; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, .85) 0 7%, transparent 22%),
+              radial-gradient(circle at 50% 60%, var(--c) 0 45%, color-mix(in srgb, var(--c) 55%, #000) 100%);
+  box-shadow: 0 5px 0 color-mix(in srgb, var(--c) 40%, #000), 0 0 16px color-mix(in srgb, var(--c) 40%, transparent);
+  transition: transform .07s, box-shadow .07s; }
+.pizza .pz-dome:active { transform: translateY(4px); box-shadow: 0 1px 0 color-mix(in srgb, var(--c) 40%, #000), 0 0 26px var(--c); }
+
+/* safety cover: hazard-striped lid on a hinge at the top */
+.pizza .pz-coverbox { position: relative; perspective: 260px; }
+.pizza .pz-lid { position: absolute; inset: -4px; padding: 0; border: 2px solid #2a1f00; border-radius: 12px; cursor: pointer; transform-origin: 50% 0;
+  background: repeating-linear-gradient(-45deg, #ffcf3d 0 9px, #1a1406 9px 18px); box-shadow: 0 4px 0 rgba(0, 0, 0, .45), inset 0 0 0 3px rgba(255, 255, 255, .2);
+  transition: transform .35s var(--spring), opacity .35s; }
+.pizza .pz-lid i { position: absolute; left: 50%; bottom: 6px; width: 26px; height: 8px; margin-left: -13px; border-radius: 4px; background: #1a1406; }
+.pizza .pz-coverbox.open .pz-lid { transform: rotateX(78deg); opacity: .55; pointer-events: none; }
+
+/* toggle: an aviation bat-handle switch */
+.pizza .pz-toggle { position: relative; display: grid; justify-items: center; gap: 2px; width: 76px; padding: 4px 0; border: 0; background: none; cursor: pointer; }
+.pizza .pz-toggle .pz-led { position: absolute; right: 6px; top: 6px; }
+.pizza .pz-tg-lbl { font: 900 9px/1 ui-monospace, monospace; letter-spacing: .5px; color: #9f97cc; }
+.pizza .pz-toggle.on .pz-tg-lbl.t-on, .pizza .pz-toggle:not(.on) .pz-tg-lbl.t-off { color: #fff; text-shadow: 0 0 6px rgba(255, 255, 255, .6); }
+.pizza .pz-tg-base { position: relative; width: 34px; height: 34px; margin: 12px 0; border-radius: 50%;
+  background: radial-gradient(circle, #151030 30%, #b5afd8 34%, #4b4377 60%, #221a43 64%); box-shadow: 0 2px 0 rgba(0, 0, 0, .5); }
+.pizza .pz-tg-bat { position: absolute; left: 50%; top: 50%; width: 10px; height: 30px; margin: -30px 0 0 -5px; border-radius: 5px 5px 3px 3px;
+  background: linear-gradient(90deg, #8c86b0, #f4f2ff 45%, #7e78a6); transform-origin: 50% 100%; transform: rotate(180deg);
+  transition: transform .22s var(--spring); box-shadow: 0 0 0 1px rgba(0, 0, 0, .35); }
+.pizza .pz-toggle.on .pz-tg-bat { transform: rotate(0deg); }
+
+/* rocker: a paddle that tilts to one of three positions */
+.pizza .pz-rocker { position: relative; overflow: hidden; display: grid; grid-template-rows: repeat(3, 1fr); width: 52px; height: 84px; border-radius: 10px;
+  background: var(--hole); box-shadow: inset 0 2px 6px rgba(0, 0, 0, .7), 0 1px 0 rgba(255, 255, 255, .12); }
+.pizza .pz-rk-paddle { position: absolute; inset: 6px 6px; border-radius: 8px; pointer-events: none;
+  background: linear-gradient(180deg, #ffe58a, var(--cheese) 50%, #b98300); box-shadow: 0 2px 0 #6b4e00;
+  transform: perspective(120px) rotateX(calc((var(--r) - 1) * -24deg)); transition: transform .2s var(--spring); }
+.pizza .pz-rk-paddle::after { content: ''; position: absolute; left: 30%; right: 30%; top: calc(50% - 2px); height: 4px; border-radius: 2px; background: rgba(0, 0, 0, .25); }
+.pizza .pz-rk-zone { position: relative; z-index: 1; padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; }
+.pizza .pz-rk-zone i { width: 0; height: 0; border: 6px solid transparent; opacity: .7; }
+.pizza .pz-rk-zone.up i { border-bottom: 8px solid #3a2a00; border-top: 0; }
+.pizza .pz-rk-zone.down i { border-top: 8px solid #3a2a00; border-bottom: 0; }
+.pizza .pz-rk-zone.mid i { width: 8px; height: 8px; border: 0; border-radius: 50%; background: #3a2a00; }
+
+/* selector: a row of chunky keys with LEDs */
+.pizza .pz-seg { display: flex; gap: 5px; width: 100%; }
+.pizza .pz-key { flex: 1; min-width: 0; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 2px 9px;
+  border: 0; border-radius: 9px; cursor: pointer; color: #cfc9ef; font-size: 13px; font-weight: 800;
+  background: linear-gradient(180deg, #3c3466, #231c45); box-shadow: 0 4px 0 #0e0a20, inset 0 1px 0 rgba(255, 255, 255, .15); transition: transform .07s, box-shadow .07s, color .15s; }
+.pizza .pz-key-t { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pizza .pz-key.on { color: #fff; transform: translateY(3px); box-shadow: 0 1px 0 #0e0a20, inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 0 14px color-mix(in srgb, var(--good) 30%, transparent); }
+.pizza .pz-key:active, .pizza .pz-pad:active, .pizza .pz-cn-btn:active, .pizza .pz-socket:active { transform: translateY(3px); box-shadow: 0 1px 0 #0e0a20; }
+
+/* slider: a rail with tick marks and a cheese-yellow cap */
+.pizza .pz-slider { position: relative; width: 100%; padding: 16px 14px 0; cursor: pointer; touch-action: none; }
+.pizza .pz-rail { position: relative; height: 10px; border-radius: 999px; background: var(--hole); box-shadow: inset 0 2px 4px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .12); }
+.pizza .pz-rail > i { position: absolute; inset: 0 auto 0 0; width: calc(var(--p) * 100%); border-radius: inherit;
+  background: linear-gradient(90deg, var(--cyan), var(--accent)); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent); transition: width .12s var(--ease); }
+.pizza .pz-cap { position: absolute; top: 4px; left: calc(14px + var(--p) * (100% - 28px)); width: 22px; height: 34px; margin-left: -11px; border-radius: 5px;
+  background: repeating-linear-gradient(180deg, transparent 0 5px, rgba(0, 0, 0, .25) 5px 6px), linear-gradient(90deg, #c79200, #ffe58a 45%, #d9a000);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .5); transition: left .12s var(--ease); }
+.pizza .pz-marks { display: flex; justify-content: space-between; margin: 14px -4px 0; font: 800 12px ui-monospace, monospace; color: #9f97cc; }
+.pizza .pz-mk { width: 16px; text-align: center; transition: color .15s, text-shadow .15s; }
+.pizza .pz-mk.on { color: var(--cheese); text-shadow: 0 0 8px var(--cheese); }
+
+/* fader: a vertical slot */
+.pizza .pz-fader { position: relative; width: 74px; height: 92px; cursor: pointer; touch-action: none; }
+.pizza .pz-fd-slot { position: absolute; left: 18px; top: 10px; bottom: 10px; width: 8px; border-radius: 4px; background: var(--hole);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, .8), 0 1px 0 rgba(255, 255, 255, .12); }
+.pizza .pz-fd-cap { position: absolute; left: 6px; width: 32px; height: 18px; top: calc(10px + (1 - var(--p)) * (100% - 20px)); margin-top: -9px; border-radius: 4px;
+  background: repeating-linear-gradient(90deg, transparent 0 4px, rgba(0, 0, 0, .25) 4px 5px), linear-gradient(180deg, #ffe58a, var(--cheese) 50%, #b98300);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .5); transition: top .12s var(--ease); }
+.pizza .pz-fd-scale { position: absolute; right: 4px; top: 2px; bottom: 2px; display: flex; flex-direction: column; justify-content: space-between;
+  font: 800 12px ui-monospace, monospace; color: #9f97cc; }
+
+/* dial: a knurled knob with a scale around */
+.pizza .pz-dial { position: relative; width: 88px; height: 88px; cursor: grab; touch-action: none; }
+.pizza .pz-num { position: absolute; transform: translate(-50%, -50%); font: 800 11px ui-monospace, monospace; color: #9f97cc; }
+.pizza .pz-num.on { color: var(--cheese); text-shadow: 0 0 6px var(--cheese); }
+.pizza .pz-knob { position: absolute; inset: 20px; border-radius: 50%; transform: rotate(var(--a)); transition: transform .18s var(--spring);
+  background: radial-gradient(circle at 40% 35%, #a49ccf, #3a3166 62%, transparent 64%),
+              repeating-conic-gradient(#2a2250 0 6deg, #6a6199 6deg 12deg);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .5), 0 0 0 2px #140f2c; }
+.pizza .pz-knob > i { position: absolute; top: 4px; left: 50%; width: 4px; height: 14px; margin-left: -2px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+/* counter: an odometer window with − / + */
+.pizza .pz-counter { display: flex; align-items: center; gap: 6px; }
+.pizza .pz-cn-btn { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; display: grid; place-items: center;
+  background: radial-gradient(circle at 40% 30%, #8b83b8, #3a3166 70%); box-shadow: 0 3px 0 #0e0a20; transition: transform .07s; }
+.pizza .pz-minus, .pizza .pz-plus { position: relative; width: 12px; height: 3px; border-radius: 2px; background: #fff; }
+.pizza .pz-plus::after { content: ''; position: absolute; left: 4.5px; top: -4.5px; width: 3px; height: 12px; border-radius: 2px; background: #fff; }
+.pizza .pz-odo { width: 40px; height: 52px; overflow: hidden; border-radius: 6px; background: linear-gradient(180deg, #000, #222 45%, #333 50%, #222 55%, #000);
+  box-shadow: inset 0 0 0 2px #0a0718, 0 1px 0 rgba(255, 255, 255, .15); }
+.pizza .pz-odo-strip { transform: translateY(calc(var(--v) * -52px)); transition: transform .28s var(--spring); }
+.pizza .pz-odo-d { display: block; height: 52px; line-height: 52px; text-align: center; font: 900 30px ui-monospace, monospace; color: #fff3c4;
+  text-shadow: 0 0 8px rgba(255, 207, 61, .5); }
+
+/* plug: a cable jack into one of four sockets */
+.pizza .pz-plug { position: relative; width: 100%; height: 74px; }
+.pizza .pz-cable { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.pizza .pz-cable path { fill: none; stroke: #ff4fa3; stroke-width: 5; stroke-linecap: round; vector-effect: non-scaling-stroke; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, .5)); }
+.pizza .pz-sockets { position: absolute; left: 0; right: 0; top: 0; display: grid; grid-template-columns: repeat(4, 1fr); }
+.pizza .pz-socket { display: grid; justify-items: center; gap: 2px; padding: 0; border: 0; background: none; cursor: pointer; }
+.pizza .pz-hole { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle, #000 30%, #5b5288 34%, #2a2250 60%, #8d84bb 64%, #1a1336 70%); }
+.pizza .pz-sock-n { font: 800 11px ui-monospace, monospace; color: #9f97cc; }
+.pizza .pz-socket.on .pz-sock-n { color: var(--cheese); }
+.pizza .pz-jack { position: absolute; top: 5px; width: 16px; height: 22px; margin-left: -8px; border-radius: 4px 4px 6px 6px; pointer-events: none;
+  background: linear-gradient(90deg, #c22d77, #ff8fc6 45%, #b02068); box-shadow: 0 3px 0 rgba(0, 0, 0, .5); transition: left .25s var(--spring); }
+
+/* keypad */
+.pizza .pz-keys { display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px; width: 100%; }
+.pizza .pz-pad { height: 44px; padding: 0; border: 0; border-radius: 8px; cursor: pointer; font: 900 18px ui-monospace, monospace; color: var(--cyan);
+  background: linear-gradient(180deg, #2d2556, #16112f); box-shadow: 0 4px 0 #07051a, inset 0 1px 0 rgba(255, 255, 255, .12); transition: transform .07s, box-shadow .07s; }
+
+/* hold: a ring fills while pressed */
+@property --hold-f { syntax: '<number>'; inherits: false; initial-value: 0; }
+.pizza .pz-hold { position: relative; display: grid; place-items: center; width: 76px; height: 76px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: radial-gradient(circle, #241c4a 54%, transparent 56%), conic-gradient(var(--cyan) calc(var(--hold-f) * 1turn), #120c28 0);
+  box-shadow: 0 0 0 3px #0c0820, 0 3px 0 4px rgba(0, 0, 0, .35); }
+.pizza .pz-hold.holding { animation: pz-hold var(--hold) linear forwards; box-shadow: 0 0 0 3px #0c0820, 0 0 22px var(--cyan); }
+@keyframes pz-hold { to { --hold-f: 1; } }
+.pizza .pz-hold-ring { position: absolute; inset: 12px; border-radius: 50%; border: 2px dashed color-mix(in srgb, var(--cyan) 50%, transparent); }
+.pizza .pz-hold-t { position: relative; font: 900 10px ui-monospace, monospace; letter-spacing: .5px; color: var(--cyan); }
+
+/* colours */
+.pizza .pz-colors { display: flex; justify-content: space-around; width: 100%; }
+
+/* joystick: a ball-top stick in a gate */
+.pizza .pz-joy { position: relative; width: 88px; height: 88px; border-radius: 50%; cursor: grab; touch-action: none;
+  background: radial-gradient(circle, #0c0820 38%, #3a3166 40%, #251d4a 70%, #6a6199 72%, #1a1336 76%); box-shadow: 0 3px 0 rgba(0, 0, 0, .5); }
+.pizza .pz-joy-gate { position: absolute; inset: 0; border-radius: 50%; opacity: .8; background:
+  linear-gradient(#0c0820, #0c0820) center / 10px 64% no-repeat, linear-gradient(#0c0820, #0c0820) center / 64% 10px no-repeat; }
+.pizza .pz-ar { position: absolute; width: 0; height: 0; border: 5px solid transparent; }
+.pizza .pz-ar.u { left: 50%; top: 4px; margin-left: -5px; border-bottom: 7px solid #9f97cc; border-top: 0; }
+.pizza .pz-ar.d { left: 50%; bottom: 4px; margin-left: -5px; border-top: 7px solid #9f97cc; border-bottom: 0; }
+.pizza .pz-ar.l { top: 50%; left: 4px; margin-top: -5px; border-right: 7px solid #9f97cc; border-left: 0; }
+.pizza .pz-ar.r { top: 50%; right: 4px; margin-top: -5px; border-left: 7px solid #9f97cc; border-right: 0; }
+.pizza .pz-joy-stick { position: absolute; left: 50%; top: 50%; width: 34px; height: 34px; margin: -17px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffd0e6 0 10%, var(--accent) 45%, #8a1350); box-shadow: 0 4px 0 rgba(0, 0, 0, .45);
+  transform: translate(calc(var(--x) * 28px), calc(var(--y) * 28px)); transition: transform .25s var(--spring); }
+.pizza .pz-joy-stick.held { transition: none; }
+
+/* pull cord: a T-handle on a cord, pulled down out of its slot */
+.pizza .pz-pull { position: relative; width: 70px; height: 96px; cursor: grab; touch-action: none; }
+.pizza .pz-pull-slot { position: absolute; left: 50%; top: 0; width: 34px; height: 10px; margin-left: -17px; border-radius: 5px; background: var(--hole); box-shadow: inset 0 2px 3px rgba(0, 0, 0, .8); }
+.pizza .pz-pull-cord { position: absolute; left: 50%; top: 5px; width: 3px; margin-left: -1.5px; height: calc(16px + var(--p) * 44px);
+  background: repeating-linear-gradient(180deg, #e8e4ff 0 3px, #8c86b0 3px 5px); transition: height .3s var(--spring); }
+.pizza .pz-pull-handle { position: absolute; left: 50%; top: calc(20px + var(--p) * 44px); width: 44px; height: 18px; margin-left: -22px; border-radius: 9px;
+  background: linear-gradient(180deg, #ff8a8f, var(--pep) 50%, #8f1520); box-shadow: 0 3px 0 rgba(0, 0, 0, .45); transition: top .3s var(--spring); }
+.pizza .pz-pull-handle.held, .pizza .pz-pull:has(.held) .pz-pull-cord { transition: none; }
+
+/* crank: a handle on an arm, turned a full circle; the ring fills as it goes */
+.pizza .pz-crank { position: relative; width: 90px; height: 90px; border-radius: 50%; cursor: grab; touch-action: none; }
+.pizza .pz-crank-ring { position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, #1a1336 60%, transparent 62%), conic-gradient(var(--cheese) calc(var(--f) * 1turn), #0c0820 0); box-shadow: 0 3px 0 rgba(0, 0, 0, .45); }
+.pizza .pz-crank-arm { position: absolute; left: 50%; top: 50%; width: 10px; height: 36px; margin: -36px 0 0 -5px; border-radius: 5px; transform-origin: 50% 100%;
+  transform: rotate(var(--a)); background: linear-gradient(90deg, #7e78a6, #e8e4ff 50%, #7e78a6); }
+.pizza .pz-crank-arm i { position: absolute; left: 50%; top: -8px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe58a, var(--cheese) 50%, #b98300); box-shadow: 0 2px 0 rgba(0, 0, 0, .5); }
+.pizza .pz-crank-hub { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px; border-radius: 50%; background: #8d84bb; box-shadow: inset 0 0 0 3px #3a3166; }
+
+/* ---------- breakdowns, fog, sauce, meteors ---------- */
+.pizza .pz-broken { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 0; border: 2px dashed var(--warn); border-radius: 12px; cursor: pointer; color: var(--warn);
+  background: repeating-linear-gradient(-45deg, rgba(20, 12, 0, .82) 0 10px, rgba(60, 40, 0, .82) 10px 20px); }
+.pizza .pz-broken .pz-ico { width: 30px; height: 30px; }
+.pizza .pz-broken b { font: 900 12px ui-monospace, monospace; letter-spacing: 1px; text-transform: uppercase; }
+.pizza .pz-fix-n { min-width: 26px; padding: 1px 6px; border-radius: 999px; background: var(--warn); color: #1a1000; font-weight: 900; }
+.pizza .pz-broken:active { transform: scale(.97); }
+.pizza .pz-sparks i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff6b0; box-shadow: 0 0 8px 2px var(--cheese); animation: pz-spark .9s steps(3) infinite; }
+.pizza .pz-sparks i:nth-child(1) { left: 18%; top: 22%; }
+.pizza .pz-sparks i:nth-child(2) { right: 20%; top: 30%; animation-delay: .3s; }
+.pizza .pz-sparks i:nth-child(3) { left: 30%; bottom: 18%; animation-delay: .6s; }
+@keyframes pz-spark { 0% { opacity: 1; transform: scale(1); } 50% { opacity: .2; transform: scale(2) translate(3px, -3px); } 100% { opacity: 0; } }
+
+.pizza .pz-panel.foggy .pz-ctl { filter: blur(3.5px) saturate(.6); transition: filter .4s; }
+.pizza .pz-fog { position: absolute; inset: 0; z-index: 3; border-radius: inherit; pointer-events: none; overflow: hidden; animation: pz-fade .5s ease-out backwards; }
+.pizza .pz-fog i { position: absolute; width: 70%; height: 45%; border-radius: 50%; filter: blur(18px);
+  background: color-mix(in srgb, var(--cheese) 45%, transparent); animation: pz-drift 6s ease-in-out infinite alternate; }
+.pizza .pz-fog i:nth-child(1) { left: -10%; top: 5%; }
+.pizza .pz-fog i:nth-child(2) { right: -15%; top: 35%; animation-delay: -2s; }
+.pizza .pz-fog i:nth-child(3) { left: 10%; bottom: -5%; animation-delay: -4s; }
+@keyframes pz-drift { to { transform: translate(14%, 8%) scale(1.1); } }
+
+.pizza .pz-sauce { position: absolute; inset: 0; z-index: 4; border-radius: inherit; pointer-events: none; overflow: hidden; touch-action: none; }
+.pizza .pz-blob { position: absolute; width: var(--s); aspect-ratio: 1; transform: translate(-50%, -50%) rotate(var(--r)); pointer-events: auto; touch-action: none;
+  border-radius: 46% 54% 40% 60% / 55% 42% 58% 45%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .35) 0 6%, transparent 16%), radial-gradient(circle at 50% 50%, #e2311f 0 50%, #a51708 72%, #7d0f04);
+  box-shadow: 18px 22px 0 -10px #c9200f, -20px 14px 0 -12px #c9200f, 6px -22px 0 -12px #c9200f;
+  transition: opacity .15s; animation: pz-splat .35s var(--spring) backwards; }
+.pizza .pz-blob.gone { pointer-events: none; opacity: 0 !important; }
+@keyframes pz-splat { from { transform: translate(-50%, -50%) rotate(var(--r)) scale(.2); } }
+.pizza .pz-sauce-hint { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); padding: 3px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 800; color: #fff; background: rgba(120, 10, 0, .8); white-space: nowrap; }
+
+.pizza .pz-rocks { position: absolute; inset: 0; z-index: 5; border-radius: inherit; pointer-events: none; overflow: hidden;
+  background: radial-gradient(circle, transparent 40%, color-mix(in srgb, #000 35%, transparent)); }
+.pizza .pz-rock { position: absolute; width: var(--s); height: var(--s); margin: calc(var(--s) / -2); padding: 0; border: 0; background: none; cursor: crosshair;
+  pointer-events: auto; animation: pz-float 2.8s ease-in-out var(--d) infinite alternate; filter: drop-shadow(0 0 8px rgba(255, 120, 60, .7)); }
+.pizza .pz-rock svg { width: 100%; height: 100%; animation: pz-spin 7s linear infinite; }
+.pizza .pz-rock.boom { pointer-events: none; animation: pz-boom .35s ease-out forwards; }
+@keyframes pz-float { to { transform: translate(var(--dx), 12px); } }
+@keyframes pz-spin { to { transform: rotate(1turn); } }
+@keyframes pz-boom { to { transform: scale(1.8); opacity: 0; filter: brightness(3); } }
+
+/* gravity well: everyone grabs the pizza */
+.pizza .pz-gravity { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--bg) 82%, transparent), color-mix(in srgb, #000 92%, transparent));
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: pz-fade .25s ease-out backwards; }
+.pizza .pz-grav-box { width: min(380px, 100%); display: flex; flex-direction: column; gap: 16px; align-items: stretch; text-align: center;
+  padding: 22px 18px; border-radius: var(--radius); background: var(--card); border: 2px solid var(--cyan);
+  box-shadow: 0 0 40px color-mix(in srgb, var(--cyan) 35%, transparent); }
+.pizza .pz-grav-title { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 24px; font-weight: 900; color: var(--cyan); }
+.pizza .pz-grav-title .pz-ico { width: 32px; height: 32px; animation: pz-spin 2s linear infinite; }
+.pizza .pz-brace { width: 190px; height: 190px; margin: 0 auto; padding: 0; border-radius: 50%; border: 6px solid #a86f00; cursor: pointer;
+  font-size: 28px; font-weight: 900; line-height: 1.1; color: #2a1900;
+  background: radial-gradient(circle at 50% 50%, transparent 0 54%, #c9852f 55% 64%, transparent 65%),
+              radial-gradient(circle at 36% 40%, var(--pep) 0 7%, transparent 8%), radial-gradient(circle at 66% 36%, var(--pep) 0 6%, transparent 7%),
+              radial-gradient(circle at 60% 70%, var(--pep) 0 6%, transparent 7%), radial-gradient(circle at 35% 30%, #fff3b0, var(--cheese) 45%, #e08a00);
+  box-shadow: 0 0 40px var(--cheese), 0 8px 0 #a86f00; animation: fx-heartbeat .9s ease-in-out infinite; }
+.pizza .pz-brace span { display: inline-block; padding: 4px 10px; border-radius: 10px; background: rgba(255, 243, 176, .85); }
+.pizza .pz-brace:active { transform: translateY(6px); box-shadow: 0 0 60px var(--cheese), 0 2px 0 #a86f00; }
+.pizza .pz-grav-held { font-size: 20px; font-weight: 800; color: var(--good); padding: 40px 0; }
+
+/* ---------- warp & over ---------- */
+.pizza .pz-banner { text-align: center; display: grid; justify-items: center; gap: 4px; border-width: 2px; }
+.pizza .pz-banner.good { border-color: var(--good); box-shadow: 0 0 26px color-mix(in srgb, var(--good) 30%, transparent); }
+.pizza .pz-banner.bad { border-color: var(--cyan); box-shadow: 0 0 26px color-mix(in srgb, var(--cyan) 30%, transparent); }
+.pizza .pz-banner h1 { margin: 0; }
+.pizza .pz-banner-art .pz-svg { width: 64px; height: 64px; animation: fx-pop .6s var(--spring) backwards; filter: drop-shadow(0 0 14px var(--cheese)); }
+.pizza .pz-banner.bad .pz-svg { filter: drop-shadow(0 0 14px var(--cyan)); }
+.pizza .pz-warp { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+.pizza .pz-warp i { position: absolute; top: 50%; left: 50%; width: 3px; height: 40vmax; border-radius: 2px; background: linear-gradient(transparent, var(--cyan));
+  transform-origin: 50% 0; opacity: 0; animation: pz-streak 1.6s var(--ease) backwards; }
+.pizza .pz-warp i:nth-child(odd) { background: linear-gradient(transparent, var(--accent)); }
+.pizza .pz-warp i:nth-child(1) { rotate: 0deg; } .pizza .pz-warp i:nth-child(2) { rotate: 26deg; animation-delay: .05s; }
+.pizza .pz-warp i:nth-child(3) { rotate: 51deg; animation-delay: .1s; } .pizza .pz-warp i:nth-child(4) { rotate: 77deg; animation-delay: .02s; }
+.pizza .pz-warp i:nth-child(5) { rotate: 103deg; animation-delay: .12s; } .pizza .pz-warp i:nth-child(6) { rotate: 129deg; animation-delay: .07s; }
+.pizza .pz-warp i:nth-child(7) { rotate: 154deg; animation-delay: .03s; } .pizza .pz-warp i:nth-child(8) { rotate: 180deg; animation-delay: .09s; }
+.pizza .pz-warp i:nth-child(9) { rotate: 206deg; animation-delay: .04s; } .pizza .pz-warp i:nth-child(10) { rotate: 231deg; animation-delay: .11s; }
+.pizza .pz-warp i:nth-child(11) { rotate: 257deg; animation-delay: .06s; } .pizza .pz-warp i:nth-child(12) { rotate: 283deg; animation-delay: .01s; }
+.pizza .pz-warp i:nth-child(13) { rotate: 309deg; animation-delay: .08s; } .pizza .pz-warp i:nth-child(14) { rotate: 334deg; animation-delay: .13s; }
+.pizza .pz-warp i:nth-child(15) { rotate: 13deg; } .pizza .pz-warp i:nth-child(16) { rotate: 90deg; } .pizza .pz-warp i:nth-child(17) { rotate: 167deg; }
+.pizza .pz-warp i:nth-child(18) { rotate: 244deg; } .pizza .pz-warp i:nth-child(19) { rotate: 297deg; } .pizza .pz-warp i:nth-child(20) { rotate: 321deg; }
+@keyframes pz-streak { 0% { opacity: 0; transform: translateY(-30vmax) scaleY(.05); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(10vmax) scaleY(1.4); } }
+.pizza .pz-line { font-style: italic; }
+.pizza .pz-stats { display: flex; gap: 16px; align-items: center; }
+.pizza .pz-big { font-size: 72px; font-weight: 900; line-height: 1; color: var(--cheese); text-shadow: 0 0 24px var(--cheese); }
+
+/* ---------- TV ---------- */
+.pizza.tv .pz-tv-head h1 { font-size: 46px; margin: 8px 0 4px; }
+.pizza.tv .pz-tv-side { display: flex; align-items: flex-start; gap: 24px; }
+.pizza.tv .pz-note.big { font-size: 28px; padding: 16px 20px; }
+.pizza.tv .pz-note.big .pz-hz-ico { width: 56px; height: 56px; border-radius: 14px; }
+.pizza.tv .pz-note.big .pz-hz-ico .pz-ico { width: 36px; height: 36px; }
+.pizza.tv .pz-countdown { font-size: 110px; }
+.pizza.tv .pz-stage { display: flex; align-items: center; gap: 28px; padding: 14px 0; }
+.pizza.tv .pz-stage.intro { flex-direction: column; text-align: center; }
+.pizza.tv .pz-stage .pz-chip { font-size: 20px; padding: 6px 14px; }
+.pizza.tv .pz-stage-ship .ship { width: 220px; filter: drop-shadow(0 0 24px color-mix(in srgb, var(--accent) 60%, transparent)); animation: pz-bob 2.4s ease-in-out infinite; }
+.pizza.tv .pz-stage-pct { font-size: 96px; font-weight: 900; line-height: 1; color: var(--cyan); text-shadow: 0 0 28px var(--cyan); font-variant-numeric: tabular-nums; }
+.pizza.tv .pz-stage .muted { font-size: 22px; }
+.pizza.tv .pz-big { font-size: 140px; }
+.pizza.tv .li { font-size: 22px; }
+.pizza.tv .pz-banner-art .pz-svg { width: 110px; height: 110px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pizza .pz-warp, .pizza .pz-sparks, .pizza .pz-fog i { display: none; }
+  .pizza .pz-cmd.glitchy .pz-cmd-text, .pizza .pz-brace, .pizza .pz-logo .ship, .pizza.tv .pz-stage-ship .ship,
+  .pizza .pz-rock, .pizza .pz-rock svg, .pizza .pz-panel.shaking > .pz-ctl, .pizza .ship .flame, .pizza .pz-grav-title .pz-ico { animation: none; }
+}

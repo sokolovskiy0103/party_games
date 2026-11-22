@@ -7,6 +7,9 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -105,6 +108,21 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface fun checkUpdate() { runOnUiThread { updates.check(manual = true) } }
         /** "📺 Транслювати" in the invite card: the system's cast picker; the TV then gets its own page (TvPresenter). */
         @JavascriptInterface fun castScreen(): Boolean = TvPresenter.openScreenCast(this@MainActivity)
+        /**
+         * api.vibrate() on the host page: the host plays too, and a WebView has no navigator.vibrate.
+         * [pattern] is "ms" or "on,off,on,…" like navigator.vibrate's array.
+         */
+        @JavascriptInterface fun vibrate(pattern: String) {
+            val ms = pattern.split(',').mapNotNull { it.trim().toLongOrNull()?.coerceIn(0L, 2_000L) }.take(16)
+            if (ms.none { it > 0 }) return
+            val v = if (Build.VERSION.SDK_INT >= 31) getSystemService(VibratorManager::class.java)?.defaultVibrator
+            else getSystemService(Vibrator::class.java)
+            if (v == null || !v.hasVibrator()) return
+            v.vibrate(
+                if (ms.size == 1) VibrationEffect.createOneShot(ms[0], VibrationEffect.DEFAULT_AMPLITUDE)
+                else VibrationEffect.createWaveform(longArrayOf(0) + ms.toLongArray(), -1)
+            )
+        }
         /** "Вийти" in the menu: same as the notification's "Завершити гру" — stops the server and the app. */
         @JavascriptInterface fun quit() {
             runOnUiThread {

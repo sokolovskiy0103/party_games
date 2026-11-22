@@ -230,7 +230,13 @@
     kick(id) { send({ t: 'kick', pid: id }); },
     nameOf(id) { return esc(((st && st.players.find(p => p.id === id)) || {}).name || '?'); },
     render() { render(); },
-    vibrate(ms) { if (!isHostPage && navigator.vibrate) { try { navigator.vibrate(ms); } catch (_) {} } },
+    // players' browsers vibrate themselves; the host's phone (a WebView without navigator.vibrate) goes through the app
+    vibrate(ms) {
+      try {
+        if (!isHostPage) { if (navigator.vibrate) navigator.vibrate(ms); }
+        else if (window.PGApp && PGApp.vibrate) PGApp.vibrate(String([].concat(ms)));
+      } catch (_) {}
+    },
   };
   // ---------- shared components (markup for ui.css) ----------
   const fmtClock = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
