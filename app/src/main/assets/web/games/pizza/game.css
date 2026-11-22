@@ -189,6 +189,22 @@ body[data-game=pizza][data-phase=PLAY] { padding-bottom: 0; }
   transition: transform .07s, box-shadow .07s; }
 .pizza .pz-dome:active { transform: translateY(4px); box-shadow: 0 1px 0 color-mix(in srgb, var(--c) 40%, #000), 0 0 26px var(--c); }
 
+/* a press lights things up for a moment (lit[] in game.js): the dome glows white-hot, the bezel ring turns cyan,
+   the whole plate gets a neon rim — so a one-shot press is obvious even without looking closely */
+.pizza .pz-bezel { transition: background .15s, box-shadow .15s; }
+.pizza .pz-bezel.lit { background: radial-gradient(circle, #191233 58%, #e9fbff 60%, var(--cyan) 70%, #1a6b80 74%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cyan) 50%, transparent), 0 0 26px var(--cyan); }
+.pizza .pz-bezel.lit .pz-dome { transform: translateY(3px);
+  background: radial-gradient(circle at 50% 45%, #fff 0 18%, color-mix(in srgb, var(--c) 45%, #fff) 45%, var(--c) 100%);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--c) 40%, #000), 0 0 30px 6px var(--c); }
+.pizza .pz-ctl.lit { border-color: var(--cyan);
+  box-shadow: 0 0 0 2px var(--cyan), 0 0 22px color-mix(in srgb, var(--cyan) 60%, transparent), inset 0 1px 0 rgba(255, 255, 255, .18), 0 3px 0 rgba(0, 0, 0, .45); }
+.pizza .pz-ctl.lit .pz-name { color: #04202a; background: var(--cyan); }
+.pizza .pz-ctl { transition: box-shadow .2s, border-color .2s; }
+.pizza .pz-name { transition: color .2s, background .2s; }
+.pizza .pz-pad.lit { color: #04202a; background: var(--cyan); box-shadow: 0 1px 0 #07051a, 0 0 18px var(--cyan); transform: translateY(3px); }
+.pizza .pz-hold.lit { --hold-f: 1; box-shadow: 0 0 0 3px var(--good), 0 0 26px var(--good); }
+
 /* safety cover: hazard-striped lid on a hinge at the top */
 .pizza .pz-coverbox { position: relative; perspective: 260px; }
 .pizza .pz-lid { position: absolute; inset: -4px; padding: 0; border: 2px solid #2a1f00; border-radius: 12px; cursor: pointer; transform-origin: 50% 0;

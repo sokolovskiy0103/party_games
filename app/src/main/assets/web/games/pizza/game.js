@@ -17,6 +17,10 @@
   let hold = null;
   /** Safety covers flipped open: control id -> time they close again. */
   const coverOpen = {};
+  /** One-shot instruments flash after a press: 'id' (the plate) and 'id:v' (the key) -> time it goes dark. */
+  const lit = {};
+  const LIT_MS = 550;
+  const isLit = k => (lit[k] || 0) > Date.now();
   /** Crank turned so far (degrees, signed), joystick offset, cord pulled: per control while it is being worked. */
   const crank = {}, joy = {}, pull = {};
   /** Sauce being wiped: { id, blobs }; meteors shot: { id, hit: Set }. */
@@ -164,10 +168,10 @@
     const press = (vv, cls, inner, extra = '') => `<button class="${cls}" data-act="press" data-c="${id}" data-v="${vv}" ${extra}>${inner}</button>`;
     switch (c.type) {
       case 'BUTTON':
-        return `<div class="pz-bezel">${press(0, 'pz-dome red', '', `aria-label="${esc(c.name)}"`)}</div>`;
+        return `<div class="pz-bezel ${isLit(id) ? 'lit' : ''}">${press(0, 'pz-dome red', '', `aria-label="${esc(c.name)}"`)}</div>`;
       case 'COVER': {
         const open = (coverOpen[id] || 0) > Date.now();
-        return `<div class="pz-coverbox ${open ? 'open' : ''}"><div class="pz-bezel">${press(0, 'pz-dome red', '', `aria-label="${esc(c.name)}"`)}</div>
+        return `<div class="pz-coverbox ${open ? 'open' : ''}"><div class="pz-bezel ${isLit(id) ? 'lit' : ''}">${press(0, 'pz-dome red', '', `aria-label="${esc(c.name)}"`)}</div>
           <button class="pz-lid" data-act="lid" data-c="${id}" aria-label="Відкинути кришку"><i></i></button></div>`;
       }
       case 'TOGGLE':
@@ -210,12 +214,12 @@
           <span class="pz-jack" style="left:${x}%"></span></div>`;
       }
       case 'KEYPAD':
-        return `<div class="pz-keys">${range(c).map(i => press(i, 'pz-pad', `${i}`)).join('')}</div>`;
+        return `<div class="pz-keys">${range(c).map(i => press(i, `pz-pad ${isLit(id + ':' + i) ? 'lit' : ''}`, `${i}`)).join('')}</div>`;
       case 'HOLD':
-        return `<button class="pz-hold ${hold && hold.c === id ? 'holding' : ''}" data-hold="${id}" style="--hold:${HOLD_MS}ms">
+        return `<button class="pz-hold ${hold && hold.c === id ? 'holding' : ''} ${isLit(id) ? 'lit' : ''}" data-hold="${id}" style="--hold:${HOLD_MS}ms">
           <span class="pz-hold-ring"></span><span class="pz-hold-t">ТРИМАЙ</span></button>`;
       case 'COLORS':
-        return `<div class="pz-colors">${c.opts.map((o, i) => `<span class="pz-bezel sm">${press(i, 'pz-dome', '', `style="--c:${c.css[i]}" aria-label="${esc(o)}"`)}</span>`).join('')}</div>`;
+        return `<div class="pz-colors">${c.opts.map((o, i) => `<span class="pz-bezel sm ${isLit(id + ':' + i) ? 'lit' : ''}">${press(i, 'pz-dome', '', `style="--c:${c.css[i]}" aria-label="${esc(o)}"`)}</span>`).join('')}</div>`;
       case 'JOYSTICK': {
         const j = joy[id] || { x: 0, y: 0 };
         return `<div class="pz-joy" data-drag="joy" data-c="${id}" style="--x:${j.x};--y:${j.y}">
@@ -239,7 +243,7 @@
   function control(c) {
     const broken = c.broken ? `<button class="pz-broken" data-act="fix" data-c="${c.id}" aria-label="Полагодити">
       <span class="pz-sparks"><i></i><i></i><i></i></span>${SVG.wrench}<b>Лагодь</b><span class="pz-fix-n">${c.broken}</span></button>` : '';
-    return `<div class="pz-ctl t-${c.type.toLowerCase()} ${WIDE[c.type] ? 'wide' : ''} ${c.broken ? 'is-broken' : ''}" data-k="${c.id}">
+    return `<div class="pz-ctl t-${c.type.toLowerCase()} ${WIDE[c.type] ? 'wide' : ''} ${c.broken ? 'is-broken' : ''} ${isLit(c.id) ? 'lit' : ''}" data-k="${c.id}">
       <div class="pz-name">${esc(c.name)}</div><div class="pz-body">${body(c)}</div>${broken}</div>`;
   }
 
@@ -428,6 +432,10 @@
     if (TYPE_STATEFUL[c.type]) {
       if (val(c) === v && c.value === v) return;
       pending[cid] = { v, t: Date.now() };
+    } else {
+      // one-shot: the plate and the pressed key light up for a moment, so a press is obvious
+      lit[cid] = lit[cid + ':' + v] = Date.now() + LIT_MS;
+      setTimeout(schedule, LIT_MS + 20);
     }
     api.vibrate(12);
     api.send({ t: 'set', c: cid, v });
